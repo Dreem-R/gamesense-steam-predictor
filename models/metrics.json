@@ -1,0 +1,112 @@
+{
+  "rows_total": 69127,
+  "rows_trainval": 53766,
+  "rows_test": 15361,
+  "blend_w_xgb": 0.5,
+  "test_2024": {
+    "Baseline: majority class": {
+      "accuracy": 0.556,
+      "balanced_acc": 0.25,
+      "macro_f1": 0.1787,
+      "qwk": 0.0,
+      "within_1_tier": 0.853,
+      "log_loss": 1.0995,
+      "auc_ovr": 0.5,
+      "auc_success_plus": 0.5,
+      "spearman_reviews": NaN
+    },
+    "Logistic Regression": {
+      "accuracy": 0.6389,
+      "balanced_acc": 0.5074,
+      "macro_f1": 0.5277,
+      "qwk": 0.5975,
+      "within_1_tier": 0.9557,
+      "log_loss": 0.8206,
+      "auc_ovr": 0.8214,
+      "auc_success_plus": 0.8777,
+      "spearman_reviews": 0.6153
+    },
+    "Random Forest": {
+      "accuracy": 0.6544,
+      "balanced_acc": 0.553,
+      "macro_f1": 0.5671,
+      "qwk": 0.649,
+      "within_1_tier": 0.9689,
+      "log_loss": 0.7925,
+      "auc_ovr": 0.8413,
+      "auc_success_plus": 0.8907,
+      "spearman_reviews": 0.6542
+    },
+    "XGBoost (tuned)": {
+      "accuracy": 0.6655,
+      "balanced_acc": 0.5688,
+      "macro_f1": 0.5781,
+      "qwk": 0.6628,
+      "within_1_tier": 0.9678,
+      "log_loss": 0.7496,
+      "auc_ovr": 0.8506,
+      "auc_success_plus": 0.8999,
+      "spearman_reviews": 0.6829
+    },
+    "LightGBM (tuned)": {
+      "accuracy": 0.6652,
+      "balanced_acc": 0.5663,
+      "macro_f1": 0.5755,
+      "qwk": 0.6589,
+      "within_1_tier": 0.9659,
+      "log_loss": 0.7506,
+      "auc_ovr": 0.8502,
+      "auc_success_plus": 0.8991,
+      "spearman_reviews": 0.6823
+    },
+    "GameSense ensemble": {
+      "accuracy": 0.6658,
+      "balanced_acc": 0.5677,
+      "macro_f1": 0.577,
+      "qwk": 0.6632,
+      "within_1_tier": 0.9675,
+      "log_loss": 0.7491,
+      "auc_ovr": 0.8508,
+      "auc_success_plus": 0.8996,
+      "spearman_reviews": 0.683
+    }
+  },
+  "review_range_test_2024": {
+    "median_abs_error_log": 0.8310555684626681,
+    "within_x3_of_actual": 0.6139574246468329,
+    "interval_80_coverage": 0.7083523208124471,
+    "spearman": 0.68021354935134
+  },
+  "confusion_matrix_test_2024": [
+    [
+      6720,
+      1707,
+      96,
+      18
+    ],
+    [
+      1538,
+      2547,
+      437,
+      40
+    ],
+    [
+      233,
+      607,
+      629,
+      181
+    ],
+    [
+      21,
+      92,
+      164,
+      331
+    ]
+  ],
+  "test_tier_distribution": [
+    0.556,
+    0.297,
+    0.1074,
+    0.0396
+  ]
+}

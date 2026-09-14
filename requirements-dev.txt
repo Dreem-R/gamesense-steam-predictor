@@ -1,0 +1,5 @@
+-r requirements.txt
+optuna==5.0.0
+shap==0.52.0
+matplotlib==3.9.1
+seaborn==0.13.2
