@@ -9,8 +9,10 @@ The app takes a game pitch and returns:
 - the most likely outcome tier (Flop / Niche / Success / Hit) with class probabilities
 - the probability of reaching 100+ reviews, compared with the average 2024 release
 - an estimated review range (10th to 90th percentile)
+- reliability checks for that prediction: model confidence, past accuracy for the same predicted tier, and how often 2024 games with a similar predicted chance actually reached 100 reviews
+- warnings when the input is unusual compared with the training data
 - per-feature contributions explaining the prediction
-- single-change "what-if" scenarios ranked by their effect on the success probability
+- suggested changes grouped by effort, each re-scored by the model, plus the combined effect of all low and medium effort changes
 
 ## Problem
 
@@ -109,7 +111,8 @@ The full metrics are in `models/metrics.json` and `reports/model_comparison_test
 │   ├── tune.py                 Optuna search
 │   ├── train.py                final training, evaluation, export
 │   ├── metrics.py
-│   └── predictor.py            inference, explanations, what-if
+│   ├── predictor.py            inference, explanations, suggestions
+│   └── reliability.py          per-prediction reliability checks
 ├── models/                     gamesense.joblib, best_params.json, metrics.json
 ├── reports/                    figures and comparison tables
 ├── requirements.txt            app dependencies

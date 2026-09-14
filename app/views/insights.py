@@ -8,7 +8,7 @@ from src import config
 df = load_insights()
 df = df[~df.genres.apply(lambda g: bool(HIDDEN_GENRES & set(g)))]
 
-st.title("📊 Steam market insights")
+st.title("Steam market insights")
 st.markdown(f"What **{len(df):,} Steam games released 2018-2024** tell us about success. "
             "\"Success\" here means reaching **100+ reviews** (roughly 5,000+ copies sold).")
 

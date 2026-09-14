@@ -72,53 +72,112 @@ class GameSensePredictor:
         out = out.reindex(out.effect.abs().sort_values(ascending=False).index).head(top_k)
         return out.reset_index(drop=True)
 
-    def what_if(self, game: dict) -> pd.DataFrame:
-        """Re-score the game with single changes and report the shift in P(100+ reviews)."""
-        base = self.predict(game).success_chance
-        variants = []
+    def what_if(self, game: dict) -> tuple[pd.DataFrame, dict]:
+        """Re-score the game with single changes.
 
-        def add(label, **changes):
-            g = dict(game, **changes)
-            if g != game:
-                variants.append((label, g))
+        Returns one row per change, sorted by the shift in P(100+ reviews), and a
+        combined plan that applies every low and medium effort change that helped.
+        A change helps if it adds at least 1 point of success chance or 15% more
+        expected reviews, so games with very low or very high chances still get
+        useful comparisons.
+        """
+        base = self.predict(game)
+        options = candidate_changes(game)
+        if not options:
+            return pd.DataFrame(columns=SUGGESTION_COLS), {}
 
-        cats = set(game["categories"])
-        if game["n_languages"] < 8:
-            add("Localise into 8 languages", n_languages=8)
-        if game["n_screenshots"] < 12:
-            add("Show 12 screenshots on the store page", n_screenshots=12)
-        if not game["linux"]:
-            add("Support Linux / Steam Deck (Proton-native)", linux=1)
-        if not game["mac"]:
-            add("Release on macOS", mac=1)
-        if game["achievements"] == 0:
-            add("Add ~25 Steam Achievements", achievements=25,
-                categories=sorted(cats | {"Steam Achievements"}))
-        if not cats & {"Full controller support", "Partial Controller Support"}:
-            add("Add full controller support", categories=sorted(cats | {"Full controller support"}))
-        if "Steam Cloud" not in cats:
-            add("Enable Steam Cloud saves", categories=sorted(cats | {"Steam Cloud"}))
-        if not cats & {"Co-op", "Online Co-op"}:
-            add("Add online co-op", categories=sorted(cats | {"Multi-player", "Co-op", "Online Co-op"}))
-        if not game["has_website"]:
-            add("Create a game website", has_website=1)
-        if game["about_words"] < 250:
-            add("Write a fuller store description (~300 words)", about_words=300)
-        if 0 < game["price"] < 10:
-            add(f"Price at $14.99 instead of ${game['price']:.2f}", price=14.99)
-        if game["price"] > 30:
-            add(f"Price at $24.99 instead of ${game['price']:.2f}", price=24.99)
-        if game["self_published"]:
-            add("Sign with an established publisher (50+ games)", self_published=0,
-                pub_prior_games=50, pub_prior_best_reviews=5000)
+        frame = pd.concat([to_frame(dict(game, **o["changes"])) for o in options], ignore_index=True)
+        _, proba, _, q, _ = self.predict_frame(frame)
+        out = pd.DataFrame(options).drop(columns="changes")
+        out["success_before"] = base.success_chance
+        out["success_after"] = proba[:, 2:].sum(1)
+        out["uplift"] = out.success_after - base.success_chance
+        out["reviews_before"] = base.reviews_mid
+        out["reviews_after"] = q["mid"]
+        out["reviews_ratio"] = (q["mid"] + 1) / (base.reviews_mid + 1)
+        out["helps"] = (out.uplift >= MIN_UPLIFT) | ((out.reviews_ratio >= MIN_REVIEW_RATIO) & (out.uplift > -0.005))
+        out = out.sort_values(["uplift", "reviews_ratio"], ascending=False).reset_index(drop=True)
 
-        if not variants:
-            return pd.DataFrame(columns=["change", "success_chance", "uplift"])
-        frame = pd.concat([to_frame(g) for _, g in variants], ignore_index=True)
-        _, proba, _, _, _ = self.predict_frame(frame)
-        out = pd.DataFrame({"change": [v[0] for v in variants], "success_chance": proba[:, 2:].sum(1)})
-        out["uplift"] = out.success_chance - base
-        return out.sort_values("uplift", ascending=False).reset_index(drop=True)
+        helping = set(out.loc[out.helps, "change"])
+        helpful = [o for o in options if o["effort"] != "High" and o["change"] in helping]
+        plan = {}
+        if len(helpful) > 1:
+            combined = dict(game)
+            for o in helpful:
+                changes = dict(o["changes"])
+                if "categories" in changes:
+                    changes["categories"] = sorted(set(combined["categories"]) | set(changes["categories"]))
+                combined.update(changes)
+            after = self.predict(combined)
+            plan = {"changes": [o["change"] for o in helpful], "success_after": after.success_chance,
+                    "reviews_after": after.reviews_mid, "tier_after": self.tier_names[after.tier]}
+        return out, plan
+
+
+MIN_UPLIFT = 0.01
+MIN_REVIEW_RATIO = 1.15
+SUGGESTION_COLS = ["change", "detail", "area", "effort", "success_before", "success_after", "uplift",
+                   "reviews_before", "reviews_after", "reviews_ratio", "helps"]
+
+
+def candidate_changes(game: dict) -> list[dict]:
+    cats = set(game["categories"])
+    options = []
+
+    def add(change, detail, area, effort, **changes):
+        options.append({"change": change, "detail": detail, "area": area, "effort": effort, "changes": changes})
+
+    if game["n_screenshots"] < 10:
+        add("Show at least 10 screenshots",
+            "Cover different areas, mechanics and moods. Steam uses them in search previews and on the store page.",
+            "Store page", "Low", n_screenshots=10)
+    if not game["has_website"]:
+        add("Put up a game website",
+            "A single page with the trailer, a press kit and store links is enough.",
+            "Store page", "Low", has_website=1)
+    if "Steam Cloud" not in cats:
+        add("Enable Steam Cloud saves",
+            "Mostly Steamworks configuration. Lets players continue on another PC or a Steam Deck.",
+            "Steam features", "Low", categories=sorted(cats | {"Steam Cloud"}))
+    if game["achievements"] == 0:
+        add("Add around 25 Steam Achievements",
+            "Gives players goals and puts the game in friends' activity feeds.",
+            "Steam features", "Medium", achievements=25, categories=sorted(cats | {"Steam Achievements"}))
+    if not cats & {"Full controller support", "Partial Controller Support"}:
+        add("Add full controller support",
+            "Needed for a Steam Deck Verified rating and for couch players.",
+            "Steam features", "Medium", categories=sorted(cats | {"Full controller support"}))
+    if game["n_languages"] < 8:
+        add("Localise into 8 languages",
+            "Common first targets are Simplified Chinese, Russian, Spanish, Brazilian Portuguese, German, "
+            "French and Japanese. Costs depend heavily on how much text the game has.",
+            "Reach", "Medium", n_languages=8)
+    if not game["linux"]:
+        add("Ship a native Linux build",
+            "Helps with Linux players and Steam Deck. Engines like Unity and Godot can export Linux builds.",
+            "Reach", "Medium", linux=1)
+    if not game["mac"]:
+        add("Ship a macOS build",
+            "Requires testing on Apple hardware and notarisation.",
+            "Reach", "Medium", mac=1)
+    if 0 < game["price"] < 10:
+        add(f"Price at $14.99 instead of ${game['price']:.2f}",
+            "Very cheap games are often read as low effort. Only worth it if the content supports the price.",
+            "Pricing", "Low", price=14.99)
+    if game["price"] > 30:
+        add(f"Price at $24.99 instead of ${game['price']:.2f}",
+            "Few games from smaller studios sell well above $30.",
+            "Pricing", "Low", price=24.99)
+    if not cats & {"Co-op", "Online Co-op"}:
+        add("Add online co-op",
+            "A design change with networking work. Only consider it if it fits the game.",
+            "Design", "High", categories=sorted(cats | {"Multi-player", "Co-op", "Online Co-op"}))
+    if game["self_published"]:
+        add("Work with an established publisher",
+            "Tested as a publisher with 50+ released games. Publishers take a revenue share in return "
+            "for marketing, funding or porting.",
+            "Business", "High", self_published=0, pub_prior_games=50, pub_prior_best_reviews=5000)
+    return options
 
 
 def to_frame(game: dict) -> pd.DataFrame:

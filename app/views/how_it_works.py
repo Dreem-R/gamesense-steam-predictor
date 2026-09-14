@@ -9,7 +9,7 @@ from src.features import FRIENDLY_NAMES, slug
 metrics = load_metrics()
 predictor = load_predictor()
 
-st.title("🧠 How GameSense works")
+st.title("How it works")
 
 st.markdown(f"""
 **The question:** from things a developer knows *before launch*, can we predict how a game will do on Steam?
@@ -72,7 +72,7 @@ st.plotly_chart(fig, use_container_width=True)
 
 r = metrics["review_range_test_2024"]
 st.markdown(f"""
-**Review-count estimate** (quantile regression): the median estimate lands within 3× of the true review count
+**Review-count estimate** (quantile regression): the median estimate lands within 3x of the true review count
 for **{r['within_x3_of_actual']:.0%}** of 2024 games. The 10th-90th percentile range contains the true value
 for **{r['interval_80_coverage']:.0%}** of games (Spearman ρ = {r['spearman']:.2f}).
 """)

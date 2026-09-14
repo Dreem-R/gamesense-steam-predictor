@@ -2,7 +2,7 @@
 
 PRESETS = {
     "Start from scratch": {},
-    "🌾 Cozy farming sim with co-op": dict(
+    "Cozy farming sim with online co-op": dict(
         name="Moonpetal Valley",
         short_description="Restore your grandmother's overgrown farm, befriend a village of spirits and grow magical crops alone or with up to four friends.",
         about=("Moonpetal Valley is a cozy farming and life sim set in a village where the seasons are ruled by "
@@ -18,7 +18,7 @@ PRESETS = {
         windows=1, mac=1, linux=1, achievements=45, n_languages=10, n_audio_languages=0, n_screenshots=14,
         has_website=1, month=9, dev_prior_games=1, dev_prior_best_reviews=400, self_published=1,
     ),
-    "🕹️ First game from a solo dev (platformer)": dict(
+    "Solo developer's first platformer": dict(
         name="Pixel Jumper",
         short_description="A retro platformer about a small robot jumping through 30 levels.",
         about=("Pixel Jumper is a 2D pixel art platformer. Jump over spikes, avoid enemies and collect coins "
@@ -28,7 +28,7 @@ PRESETS = {
         categories=["Single-player"], windows=1, mac=0, linux=0, achievements=0, n_languages=1,
         n_screenshots=5, has_website=0, month=6, dev_prior_games=0, dev_prior_best_reviews=0, self_published=1,
     ),
-    "🔫 Free-to-play online shooter": dict(
+    "Free-to-play online shooter": dict(
         name="Overclock Arena",
         short_description="Fast team-based hero shooter. Pick one of 16 agents, master their abilities and fight in 5v5 online matches.",
         about=("Overclock Arena is a free-to-play team shooter where tactics meet speed. Choose from 16 agents, "
@@ -42,7 +42,7 @@ PRESETS = {
         n_screenshots=12, has_website=1, month=3, dev_prior_games=2, dev_prior_best_reviews=3000,
         self_published=0, pub_prior_games=60, pub_prior_best_reviews=40000,
     ),
-    "📖 Story-rich visual novel": dict(
+    "Story-driven visual novel": dict(
         name="Letters to Autumn",
         short_description="A heartfelt visual novel about two pen pals whose letters start arriving from different years.",
         about=("Letters to Autumn is a narrative visual novel with multiple endings. Follow Mina and Theo as their "

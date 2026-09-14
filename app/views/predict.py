@@ -1,12 +1,12 @@
-import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
 
-from app.common import (TIER_COLOR, TIER_EMOJI, TIER_HEADLINE, VISIBLE_GENRES, load_insights, load_metrics,
-                        load_predictor)
+from app.common import (TIER_COLOR, TIER_HEADLINE, VISIBLE_GENRES, load_insights, load_metrics, load_predictor,
+                        load_test_predictions)
 from app.presets import PRESETS
 from src import config
-from src.predictor import MIN_DESCRIPTION_WORDS, default_game
+from src.predictor import default_game
+from src.reliability import calibration_check, confidence_level, input_warnings, tier_track_record
 
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 CATEGORY_GROUPS = {
@@ -14,10 +14,15 @@ CATEGORY_GROUPS = {
                     "Cross-Platform Multiplayer", "MMO", "LAN Co-op", "LAN PvP", "Remote Play Together"],
     "Steam features": ["Steam Achievements", "Steam Cloud", "Steam Leaderboards", "Steam Workshop", "Stats",
                        "In-App Purchases", "Includes level editor", "Captions available"],
-    "Controls & VR": ["Full controller support", "Partial Controller Support", "VR Only", "VR Supported"],
+    "Controls and VR": ["Full controller support", "Partial Controller Support", "VR Only", "VR Supported"],
 }
 
 predictor = load_predictor()
+
+
+def md(text: str) -> str:
+    """Escape dollar signs so Streamlit does not render them as LaTeX."""
+    return text.replace("$", r"\$")
 
 
 def apply_preset():
@@ -40,25 +45,25 @@ if "g_name" not in st.session_state:
     st.session_state.preset = list(PRESETS)[1]
     apply_preset()
 
-# ---------------------------------------------------------------------------
-st.title("🎮 Will my game succeed on Steam?")
+st.title("Will my game succeed on Steam?")
 st.markdown(
-    f"Describe the game you're making. **GameSense** was trained on "
-    f"**{predictor.b['train_rows']:,} real Steam releases (2018-2024)** and predicts how it's likely to do "
-    "in its first year or two on sale, why, and what you could change."
+    f"Describe the game you are making. The model was trained on "
+    f"**{predictor.b['train_rows']:,} Steam games released between 2018 and 2024** and estimates how a game "
+    "like yours performs in its first year or two on sale."
 )
-st.selectbox("Try an example pitch, or start from scratch", list(PRESETS), key="preset", on_change=apply_preset)
+st.selectbox("Load an example game or start from scratch", list(PRESETS), key="preset", on_change=apply_preset)
 
 left, right = st.columns([1.05, 1], gap="large")
 
 with left:
-    t1, t2, t3, t4 = st.tabs(["🎲 The game", "🛒 Store page", "⚙️ Features", "🏢 Studio"])
+    t1, t2, t3, t4 = st.tabs(["Game", "Store page", "Features", "Studio"])
     with t1:
         st.text_input("Game title", key="g_name")
         st.multiselect("Genres (as listed on Steam)", VISIBLE_GENRES, key="g_genres")
-        st.text_area("Short description (the one-liner under the trailer)", key="g_short", height=80, max_chars=300)
-        st.text_area("About this game (store description)", key="g_about", height=170,
-                     help="An NLP model reads this. More detail means a more accurate prediction.")
+        st.text_area("Short description (the one-line summary on the store page)", key="g_short", height=80,
+                     max_chars=300)
+        st.text_area("About this game (full store description)", key="g_about", height=170,
+                     help="A text model reads this. A real description gives a more accurate prediction.")
         c1, c2 = st.columns(2)
         c1.toggle("Free to play", key="g_free")
         c1.number_input("Price (USD)", 0.99, 99.99, step=1.0, key="g_price", disabled=st.session_state.g_free)
@@ -66,7 +71,7 @@ with left:
         c2.toggle("Mature content (17+)", key="g_mature")
     with t2:
         st.slider("Screenshots on the store page", 0, 30, key="g_screens")
-        st.slider("Languages supported (interface/subtitles)", 1, 30, key="g_langs")
+        st.slider("Languages supported (interface or subtitles)", 1, 30, key="g_langs")
         st.slider("Languages with full voice-over", 0, 15, key="g_audio")
         st.number_input("Steam Achievements", 0, 1000, step=5, key="g_ach")
         st.toggle("Has an official website", key="g_site")
@@ -74,11 +79,10 @@ with left:
         c1, c2, c3 = st.columns(3)
         c1.checkbox("Windows", key="g_win")
         c2.checkbox("macOS", key="g_mac")
-        c3.checkbox("Linux / Steam Deck", key="g_linux")
+        c3.checkbox("Linux", key="g_linux")
         for group, options in CATEGORY_GROUPS.items():
             st.multiselect(group, options, key=f"g_cat_{group}")
-        st.caption("Single-player is assumed unless the game is multiplayer-only.")
-        st.checkbox("Multiplayer only (no single-player)", key="g_mp_only")
+        st.checkbox("Multiplayer only (no single-player mode)", key="g_mp_only")
     with t4:
         st.number_input("Games this studio has released on Steam before", 0, 100, key="g_dev_games")
         st.number_input("Reviews on the studio's best previous game", 0, 1_000_000, step=50, key="g_dev_best",
@@ -107,88 +111,175 @@ game = default_game(
 if game["self_published"]:
     game["pub_prior_games"], game["pub_prior_best_reviews"] = game["dev_prior_games"], game["dev_prior_best_reviews"]
 
-# ---------------------------------------------------------------------------
+market = load_insights()
+test = load_test_predictions()
+metrics = load_metrics()
+
 with right:
     if not game["genres"]:
-        st.info("Pick at least one genre to get a prediction.")
+        st.info("Select at least one genre to get a prediction.")
         st.stop()
 
     pred = predictor.predict(game)
     tier = config.TIER_NAMES[pred.tier]
-    market = load_insights()
     market_rate = market.loc[market.year == config.YEAR_MAX, "success"].mean()
+    level, level_detail = confidence_level(pred.proba)
 
     st.markdown(
-        f"""<div style="border-radius:14px;padding:18px 22px;background:{TIER_COLOR[tier]}1f;
-        border:2px solid {TIER_COLOR[tier]};margin-bottom:10px">
-        <div style="font-size:0.9rem;opacity:.75">Prediction for <b>{game['name'] or 'your game'}</b></div>
-        <div style="font-size:2.1rem;font-weight:800;line-height:1.2">{TIER_EMOJI[tier]} {tier}</div>
-        <div style="font-size:1.1rem;font-weight:600">{TIER_HEADLINE[tier]}</div>
-        <div style="font-size:0.9rem;opacity:.8;margin-top:4px">{config.TIER_BLURBS[tier]}</div></div>""",
+        f"""<div style="border-radius:10px;padding:16px 20px;background:{TIER_COLOR[tier]}1f;
+        border:1px solid {TIER_COLOR[tier]};margin-bottom:12px">
+        <div style="font-size:0.85rem;opacity:.75">Prediction for {game['name'] or 'your game'}</div>
+        <div style="font-size:2rem;font-weight:700;line-height:1.25">{tier}</div>
+        <div style="font-size:1.05rem;font-weight:600">{TIER_HEADLINE[tier]}</div>
+        <div style="font-size:0.85rem;opacity:.8;margin-top:4px">{config.TIER_BLURBS[tier]}
+        Confidence: {level.lower()}.</div></div>""",
         unsafe_allow_html=True,
     )
     m1, m2 = st.columns(2)
+    ratio = pred.success_chance / market_rate
     m1.metric("Chance of 100+ reviews", f"{pred.success_chance:.0%}",
-              f"{pred.success_chance / market_rate:.1f}× the average {config.YEAR_MAX} release",
-              delta_color="normal" if pred.success_chance >= market_rate else "inverse")
-    m2.metric("Expected reviews", f"~{pred.reviews_mid:,.0f}",
-              f"likely range {pred.reviews_low:,.0f} – {pred.reviews_high:,.0f}", delta_color="off")
-    st.caption(f"Rule of thumb: 30-60 sales per review ≈ **{pred.reviews_mid * 30:,.0f} – "
-               f"{pred.reviews_mid * 60:,.0f} copies**.")
-    if not pred.used_text:
-        st.warning(f"Add a description of at least {MIN_DESCRIPTION_WORDS} words so the NLP part of the model can read it.")
+              f"{ratio:.1f}x the average {config.YEAR_MAX} release",
+              delta_color="normal" if ratio >= 1 else "inverse")
+    m2.metric("Expected reviews", f"{pred.reviews_mid:,.0f}",
+              f"likely range {pred.reviews_low:,.0f} to {pred.reviews_high:,.0f}", delta_color="off")
+    st.caption(f"At 30 to 60 sales per review, that is roughly {pred.reviews_mid * 30:,.0f} to "
+               f"{pred.reviews_mid * 60:,.0f} copies.")
 
     fig = go.Figure(go.Bar(
-        x=pred.proba * 100, y=[f"{TIER_EMOJI[t]} {t}" for t in config.TIER_NAMES], orientation="h",
+        x=pred.proba * 100, y=config.TIER_NAMES, orientation="h",
         marker_color=[TIER_COLOR[t] for t in config.TIER_NAMES],
         text=[f"{p:.0%}" for p in pred.proba], textposition="outside",
     ))
-    fig.update_layout(height=210, margin=dict(l=0, r=30, t=30, b=0), title="Probability of each outcome",
-                      xaxis=dict(range=[0, 105], showticklabels=False, showgrid=False),
+    fig.update_layout(height=200, margin=dict(l=0, r=30, t=30, b=0), title="Probability of each outcome",
+                      xaxis=dict(range=[0, 108], showticklabels=False, showgrid=False),
                       yaxis=dict(autorange="reversed"))
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
+# Reliability
 st.divider()
-c_why, c_fix = st.columns(2, gap="large")
-with c_why:
-    st.subheader("🔍 Why the model thinks so")
-    exp = predictor.explain(game, top_k=8).iloc[::-1]
-    colors = ["#66a182" if e > 0 else "#d1495b" for e in exp.effect]
-    labels = [f"{l} ({v})" for l, v in zip(exp.label, exp.value)]
-    fig = go.Figure(go.Bar(x=exp.effect, y=labels, orientation="h", marker_color=colors,
-                           text=[f"×{m:.2f}" for m in exp.multiplier], textposition="auto",
-                           hovertemplate="%{y}<br>reviews ×%{text}<extra></extra>"))
-    fig.update_layout(height=360, margin=dict(l=0, r=0, t=10, b=0),
-                      xaxis_title="← fewer reviews  |  more reviews →", xaxis_zeroline=True)
-    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-    st.caption("Each bar is that factor's push on expected reviews compared with an average game "
-               "(SHAP-style contributions). ×1.5 = 50% more reviews.")
+st.subheader("How reliable is this prediction?")
+st.markdown("These checks compare this prediction with how the model performed on "
+            f"**{metrics['rows_test']:,} games released in 2024**, which were held out from training.")
 
-with c_fix:
-    st.subheader("🛠️ Quick wins to try")
-    wi = predictor.what_if(game)
-    wins = wi[wi.uplift > 0.005].head(6)
-    if wins.empty:
-        st.success("No obvious quick wins, your store setup already covers the basics.")
-    for _, r in wins.iterrows():
-        change = r.change.replace("$", r"\$")
-        st.markdown(
-            f"**{change}**  \n"
-            f"<span style='color:#66a182;font-weight:700'>+{r.uplift * 100:.1f} pts</span> "
-            f"→ {r.success_chance:.0%} chance of 100+ reviews",
-            unsafe_allow_html=True,
-        )
-        st.progress(float(np.clip(r.success_chance, 0, 1)))
-    st.caption("The model re-scores your game with each single change. It shows patterns in the data, "
-               "not a guarantee that the change alone causes success.")
+track = tier_track_record(test, pred.tier)
+calib = calibration_check(test, pred.success_chance)
+r1, r2, r3 = st.columns(3)
+with r1:
+    with st.container(border=True):
+        st.metric("Confidence", level)
+        st.caption(md(level_detail) + " When probabilities are spread across tiers, treat the tier label "
+                   "as a rough guide and look at the chance of 100+ reviews instead.")
+with r2:
+    with st.container(border=True):
+        st.metric(f"Past accuracy for {tier} predictions", f"{track['exact']:.0%}")
+        st.caption(f"Of {track['games']:,} games from 2024 that the model placed in {tier}, "
+                   f"{track['exact']:.0%} ended up there and {track['within_one']:.0%} were within one tier.")
+with r3:
+    with st.container(border=True):
+        if calib["games"] >= 30:
+            st.metric("Did similar predictions come true?", f"{calib['actual_rate']:.0%}")
+            st.caption(f"{calib['games']:,} games from 2024 were given a {calib['low']:.0%} to "
+                       f"{calib['high']:.0%} chance of 100+ reviews. {calib['actual_rate']:.0%} of them "
+                       "actually got there.")
+        else:
+            st.metric("Did similar predictions come true?", "Too few cases")
+            st.caption("Fewer than 30 games from 2024 were given a chance this close, so there is not "
+                       "enough data to check it.")
 
-test_scores = load_metrics()["test_2024"]["GameSense ensemble"]
-with st.expander("⚠️ How much should I trust this?"):
+coverage = metrics["review_range_test_2024"]["interval_80_coverage"]
+st.caption(f"The review range is the model's 10th to 90th percentile estimate. For 2024 games, the actual review "
+           f"count fell inside that range {coverage:.0%} of the time, so the real number can land outside it.")
+
+for note in input_warnings(game, market):
+    st.warning(md(note))
+
+k1, k2 = st.columns(2)
+with k1:
+    st.markdown("**What the model uses**")
     st.markdown(
-        f"- On **2024 releases the model never saw**, it predicted the exact tier for "
-        f"{test_scores['accuracy']:.0%} of games and was within one tier for {test_scores['within_1_tier']:.0%}. "
-        f"See **How it works** for all the numbers.\n"
-        "- It only knows what's on the store page and the studio's track record. It can't see how *fun* your "
-        "game is, your trailer, wishlists, marketing, or a streamer picking it up.\n"
-        "- Treat it as a reality check on your positioning, not a verdict on your idea."
+        "- Genres, price, platforms and Steam features\n"
+        "- Store page setup: screenshots, languages, achievements, description\n"
+        "- The studio's and publisher's previous releases\n"
+        "- Patterns from 69,000 real launches"
     )
+with k2:
+    st.markdown("**What the model cannot see**")
+    st.markdown(
+        "- Whether the game is fun, polished or original\n"
+        "- Trailer quality, capsule art and wishlists before launch\n"
+        "- Marketing, press, festivals and streamer coverage\n"
+        "- Launch timing against big releases and Steam sales"
+    )
+st.info("Best use: change one thing at a time and compare the results, instead of treating a single number "
+        "as a forecast. A low score does not mean the idea is bad. It means games with a similar store setup "
+        "usually struggled, and the parts the model cannot see need to do more of the work.")
+
+# Explanation and suggestions
+st.divider()
+st.subheader("What is driving the prediction")
+exp = predictor.explain(game, top_k=8).iloc[::-1]
+colors = ["#66a182" if e > 0 else "#d1495b" for e in exp.effect]
+labels = [f"{l} ({v})" for l, v in zip(exp.label, exp.value)]
+fig = go.Figure(go.Bar(x=exp.effect, y=labels, orientation="h", marker_color=colors,
+                       text=[f"x{m:.2f}" for m in exp.multiplier], textposition="auto",
+                       hovertemplate="%{y}<br>reviews %{text}<extra></extra>"))
+fig.update_layout(height=380, margin=dict(l=0, r=0, t=10, b=0),
+                  xaxis_title="lowers expected reviews  |  raises expected reviews", xaxis_zeroline=True)
+st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+st.caption("Each bar shows how much a factor moves the expected review count compared with an average game "
+           "(SHAP values from the review model). x1.50 means 50% more reviews, x0.70 means 30% fewer.")
+
+
+def suggestion_card(r):
+    with st.container(border=True):
+        st.markdown(f"**{md(r.change)}**")
+        st.markdown(
+            f"Chance of 100+ reviews **{r.success_before:.0%} → {r.success_after:.0%}** "
+            f"({r.uplift * 100:+.1f} points)  \nExpected reviews **{(r.reviews_ratio - 1) * 100:+.0f}%**"
+        )
+        st.caption(f"{r.area}, {r.effort.lower()} effort. {md(r.detail)}")
+
+
+st.divider()
+st.subheader("Suggestions")
+st.markdown("Each suggestion re-runs the model with a single change to your game. A change is listed when it "
+            "adds at least 1 point to the chance of 100+ reviews, or at least 15% to expected reviews "
+            "without lowering that chance.")
+table, plan = predictor.what_if(game)
+helpful = table[table.helps]
+
+if helpful.empty:
+    st.markdown("None of the tested changes pass that bar. What holds this game back is mostly outside quick "
+                "fixes: genre, studio history or the description itself.")
+
+for title, rows in [("Low and medium effort", helpful[helpful.effort != "High"]),
+                    ("Bigger decisions", helpful[helpful.effort == "High"])]:
+    if rows.empty:
+        continue
+    st.markdown(f"#### {title}")
+    cols = st.columns(2, gap="medium")
+    for i, (_, r) in enumerate(rows.iterrows()):
+        with cols[i % 2]:
+            suggestion_card(r)
+
+if plan:
+    with st.container(border=True):
+        st.markdown(f"**All {len(plan['changes'])} low and medium effort changes together**")
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Chance of 100+ reviews", f"{plan['success_after']:.0%}",
+                  f"{(plan['success_after'] - pred.success_chance) * 100:+.1f} points")
+        c2.metric("Expected reviews", f"{plan['reviews_after']:,.0f}",
+                  f"from {pred.reviews_mid:,.0f}", delta_color="off")
+        c3.metric("Predicted tier", plan["tier_after"], f"from {tier}", delta_color="off")
+        st.caption("Includes: " + md("; ".join(plan["changes"])) + ". The combined game is scored as a whole, "
+                   "because the effects of separate changes do not simply add up.")
+
+unhelpful = table[~table.helps]
+if not unhelpful.empty:
+    with st.expander(f"Also tested, with little or negative effect ({len(unhelpful)})"):
+        for _, r in unhelpful.iterrows():
+            st.markdown(f"- {md(r.change)}: chance {r.success_before:.0%} → {r.success_after:.0%}, "
+                        f"expected reviews {(r.reviews_ratio - 1) * 100:+.0f}%")
+
+st.caption("These effects are associations learned from past launches, not guarantees. For example, games with "
+           "controller support also tend to be more polished overall, and the model cannot separate the two.")

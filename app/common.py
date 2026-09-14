@@ -17,17 +17,16 @@ from src.predictor import GameSensePredictor  # noqa: E402
 HIDDEN_GENRES = {"Nudity", "Sexual Content"}
 VISIBLE_GENRES = [g for g in config.GENRES if g not in HIDDEN_GENRES]
 
-TIER_EMOJI ={"Flop": "💀", "Niche": "🌱", "Success": "⭐", "Hit": "🚀"}
 TIER_COLOR = {"Flop": "#d1495b", "Niche": "#edae49", "Success": "#66a182", "Hit": "#2e86ab"}
 TIER_HEADLINE = {
-    "Flop": "Likely to get lost in the crowd",
+    "Flop": "Likely to struggle to find players",
     "Niche": "Likely to find a small audience",
-    "Success": "Real breakout potential",
-    "Hit": "This looks like a hit",
+    "Success": "Likely to find a solid audience",
+    "Hit": "Likely to reach a large audience",
 }
 
 
-@st.cache_resource(show_spinner="Loading the model…")
+@st.cache_resource(show_spinner="Loading the model...")
 def load_predictor() -> GameSensePredictor:
     return GameSensePredictor()
 
@@ -44,3 +43,8 @@ def load_insights() -> pd.DataFrame:
 @st.cache_data
 def load_metrics() -> dict:
     return json.loads((config.MODELS_DIR / "metrics.json").read_text())
+
+
+@st.cache_data
+def load_test_predictions() -> pd.DataFrame:
+    return pd.read_parquet(config.REPORTS_DIR / "test2024_predictions.parquet")

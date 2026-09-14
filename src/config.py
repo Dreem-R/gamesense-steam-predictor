@@ -20,10 +20,10 @@ TEST_YEARS = (2024, 2024)
 TIER_BINS = [-1, 9, 99, 999, float("inf")]
 TIER_NAMES = ["Flop", "Niche", "Success", "Hit"]
 TIER_BLURBS = {
-    "Flop": "Fewer than 10 reviews (roughly under ~500 copies sold).",
-    "Niche": "10-99 reviews (roughly 500-5,000 copies).",
-    "Success": "100-999 reviews (roughly 5,000-50,000 copies).",
-    "Hit": "1,000+ reviews (roughly 50,000+ copies).",
+    "Flop": "Fewer than 10 reviews, under about 500 copies sold.",
+    "Niche": "10 to 99 reviews, about 500 to 5,000 copies sold.",
+    "Success": "100 to 999 reviews, about 5,000 to 50,000 copies sold.",
+    "Hit": "1,000 or more reviews, about 50,000 copies sold or more.",
 }
 
 NON_GAME_GENRES = {
