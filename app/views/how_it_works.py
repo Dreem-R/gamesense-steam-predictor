@@ -28,7 +28,7 @@ st.graphviz_chart("""
 digraph {
   rankdir=LR; node [shape=box, style="rounded,filled", fillcolor="#eef3f7", fontname="Helvetica", fontsize=11];
   raw [label="124k Steam apps"]; clean [label="Clean + filter\\n69k games"];
-  feat [label="~65 pre-launch features\\nprice, genres, platforms,\\nlanguages, store page,\\nstudio track record"];
+  feat [label="65 pre-launch features\\nprice, genres, platforms,\\nlanguages, store page,\\nstudio track record"];
   text [label="Store description\\nTF-IDF + Ridge\\n(NLP score, out-of-fold)"];
   xgb [label="XGBoost\\n(Optuna-tuned)"]; lgb [label="LightGBM\\n(Optuna-tuned)"];
   ens [label="Weighted ensemble\\n→ tier probabilities", fillcolor="#d8ecdf"];
@@ -95,5 +95,5 @@ st.markdown("""
 - Only store-page information is used. Wishlists, trailers, marketing, streamers and the game itself are invisible.
 - Store pages change after launch (more languages, screenshots, achievements), so some signals are slightly optimistic.
 - Studio "best previous game" reviews are counted as of the data snapshot, not at launch time.
-- Patterns are correlations. Adding Linux support won't *cause* success on its own.
+- Patterns are correlations. Adding Linux support will not cause success on its own.
 """)

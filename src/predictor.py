@@ -1,4 +1,4 @@
-"""Inference wrapper: predictions, feature contributions and what-if scenarios."""
+"""Inference wrapper: predictions, feature contributions and suggested changes."""
 # lightgbm must be imported before pyarrow, otherwise prediction segfaults on Windows.
 import lightgbm  # noqa: F401, I001
 

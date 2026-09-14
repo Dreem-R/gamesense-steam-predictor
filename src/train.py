@@ -1,6 +1,6 @@
 """Train, evaluate and export the final model.
 
-  0. train 2018-2022, predict 2023: choose blend weight and class thresholds
+  0. train 2018-2022, predict 2023: choose the blend weight
   1. train 2018-2023, predict 2024: held-out test metrics
   2. train 2018-2024: model saved to models/gamesense.joblib
 

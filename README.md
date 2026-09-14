@@ -1,8 +1,8 @@
 # GameSense: Steam Success Predictor
 
-Predict how a game is likely to perform on Steam using only information available before launch: store page setup, genres, price, platforms, localisation and the studio's track record.
+A machine learning model that estimates how a game is likely to perform on Steam using only information available before launch: store page setup, genres, price, platforms, localisation and the studio's track record.
 
-**Live demo:** _add your Streamlit link here_
+**Live demo:** [gamesense-steam-predictor.streamlit.app](https://gamesense-steam-predictor.streamlit.app/)
 
 The app takes a game pitch and returns:
 
@@ -58,7 +58,7 @@ Result: **69,127 games**.
 
 1. **Baselines:** majority class, logistic regression, random forest.
 2. **Gradient boosting:** XGBoost and LightGBM, each tuned with Optuna (40 trials, validation log loss).
-3. **Final classifier:** an equal-weight probability blend of the two boosted models. The blend weight was selected on the 2023 validation set.
+3. **Final classifier:** a probability blend of the two boosted models. A grid search over blend weights on the 2023 validation set selected equal weights.
 4. **Review range:** three LightGBM quantile regressors (10th, 50th, 90th percentiles) on log reviews. The median model also provides the per-feature contributions shown in the app.
 
 ## Results
@@ -90,8 +90,8 @@ The full metrics are in `models/metrics.json` and `reports/model_comparison_test
 
 - The number of releases doubled between 2018 and 2024, while the share of games reaching 100 reviews fell from 26% to 15%.
 - Games supporting 8-12 languages reach 100+ reviews about five times as often as English-only games.
-- Store pages with 11+ screenshots perform noticeably better than pages with fewer than 8.
-- A studio's second to fourth release does better than its first. Very prolific studios (11+ releases) do worse, which is mostly asset-flip and shovelware catalogues.
+- Store pages with 11 or more screenshots reach 100+ reviews in 29-33% of cases, compared with 13-14% for pages with fewer than 8.
+- A studio's second to fourth release does better than its first (24-27% vs 17%). Studios with 11 or more previous releases drop back to 16%.
 
 ## Project structure
 
@@ -136,7 +136,7 @@ pip install -r requirements-dev.txt
 Download the dataset (about 190 MB) to `data/raw/steam_games.parquet`:
 
 ```bash
-curl -L -o data/raw/steam_games.parquet https://huggingface.co/api/datasets/FronkonGames/steam-games-dataset/parquet/default/train/0.parquet
+curl -L --create-dirs -o data/raw/steam_games.parquet https://huggingface.co/api/datasets/FronkonGames/steam-games-dataset/parquet/default/train/0.parquet
 ```
 
 Then run the pipeline:
@@ -157,4 +157,4 @@ On a laptop CPU, tuning takes about an hour and training about 11 minutes.
 - **Only store-page data is used.** Wishlists, trailers, marketing, press and streamer coverage are not in the data, and they are often the deciding factors.
 - **Store pages change after launch.** Languages, screenshots and achievements may have been added later, so these signals are somewhat optimistic.
 - **Studio history is measured at the snapshot date,** not at the time of each launch.
-- **Associations are not causal.** The what-if scenarios show how the model responds, not guaranteed outcomes.
+- **Associations are not causal.** The suggestions show how the model responds to a change, not a guaranteed outcome.
