@@ -1,0 +1,47 @@
+{
+  "Start from scratch": {
+    "proba": [
+      0.827516,
+      0.131509,
+      0.036655,
+      0.00432
+    ],
+    "reviews_mid": 1.843
+  },
+  "Cozy farming sim with online co-op": {
+    "proba": [
+      0.002512,
+      0.022392,
+      0.127675,
+      0.847421
+    ],
+    "reviews_mid": 1773.097
+  },
+  "Solo developer's first platformer": {
+    "proba": [
+      0.961552,
+      0.033119,
+      0.005165,
+      0.000164
+    ],
+    "reviews_mid": 1.076
+  },
+  "Free-to-play online shooter": {
+    "proba": [
+      0.170445,
+      0.003243,
+      0.05339,
+      0.772923
+    ],
+    "reviews_mid": 2637.667
+  },
+  "Story-driven visual novel": {
+    "proba": [
+      0.501556,
+      0.309973,
+      0.173812,
+      0.014659
+    ],
+    "reviews_mid": 9.349
+  }
+}
