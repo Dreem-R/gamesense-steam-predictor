@@ -2,6 +2,7 @@
 
 Only information available before launch is used.
 """
+
 import re
 
 import numpy as np
@@ -10,7 +11,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import Ridge
 from sklearn.model_selection import KFold
 
-from src import config
+from gamesense import config
 
 
 def slug(name: str) -> str:
@@ -21,28 +22,60 @@ GENRE_COLS = [f"genre_{slug(g)}" for g in config.GENRES]
 CATEGORY_COLS = [f"cat_{slug(c)}" for c in config.CATEGORIES]
 
 BASE_COLS = [
-    "price", "is_free", "windows", "mac", "linux", "mature",
-    "achievements", "n_languages", "n_audio_languages", "n_screenshots",
-    "has_website", "about_words", "short_desc_chars", "year", "month",
-    "dev_prior_games", "dev_prior_best_reviews", "pub_prior_games",
-    "pub_prior_best_reviews", "self_published", "n_genres", "n_categories",
-    "multiplayer_any", "controller_any",
+    "price",
+    "is_free",
+    "windows",
+    "mac",
+    "linux",
+    "mature",
+    "achievements",
+    "n_languages",
+    "n_audio_languages",
+    "n_screenshots",
+    "has_website",
+    "about_words",
+    "short_desc_chars",
+    "year",
+    "month",
+    "dev_prior_games",
+    "dev_prior_best_reviews",
+    "pub_prior_games",
+    "pub_prior_best_reviews",
+    "self_published",
+    "n_genres",
+    "n_categories",
+    "multiplayer_any",
+    "controller_any",
 ]
 TEXT_COL = "text_score"
 FEATURE_COLS = BASE_COLS + GENRE_COLS + CATEGORY_COLS + [TEXT_COL]
 
 FRIENDLY_NAMES = {
-    "price": "Price", "is_free": "Free to play", "windows": "Windows", "mac": "macOS",
-    "linux": "Linux / Steam Deck", "mature": "Mature (17+)", "achievements": "Achievements",
-    "n_languages": "Languages supported", "n_audio_languages": "Fully voiced languages",
-    "n_screenshots": "Screenshots on store page", "has_website": "Has a website",
-    "about_words": "Store description length", "short_desc_chars": "Short description length",
-    "year": "Release year", "month": "Release month",
-    "dev_prior_games": "Studio's previous games", "dev_prior_best_reviews": "Studio's best previous game (reviews)",
-    "pub_prior_games": "Publisher's catalogue size", "pub_prior_best_reviews": "Publisher's best game (reviews)",
-    "self_published": "Self-published", "n_genres": "Number of genres",
-    "n_categories": "Number of Steam features", "multiplayer_any": "Any multiplayer",
-    "controller_any": "Controller support", TEXT_COL: "Description wording (NLP score)",
+    "price": "Price",
+    "is_free": "Free to play",
+    "windows": "Windows",
+    "mac": "macOS",
+    "linux": "Linux / Steam Deck",
+    "mature": "Mature (17+)",
+    "achievements": "Achievements",
+    "n_languages": "Languages supported",
+    "n_audio_languages": "Fully voiced languages",
+    "n_screenshots": "Screenshots on store page",
+    "has_website": "Has a website",
+    "about_words": "Store description length",
+    "short_desc_chars": "Short description length",
+    "year": "Release year",
+    "month": "Release month",
+    "dev_prior_games": "Studio's previous games",
+    "dev_prior_best_reviews": "Studio's best previous game (reviews)",
+    "pub_prior_games": "Publisher's catalogue size",
+    "pub_prior_best_reviews": "Publisher's best game (reviews)",
+    "self_published": "Self-published",
+    "n_genres": "Number of genres",
+    "n_categories": "Number of Steam features",
+    "multiplayer_any": "Any multiplayer",
+    "controller_any": "Controller support",
+    TEXT_COL: "Description wording (NLP score)",
 }
 FRIENDLY_NAMES.update({f"genre_{slug(g)}": f"Genre: {g}" for g in config.GENRES})
 FRIENDLY_NAMES.update({f"cat_{slug(c)}": f"Feature: {c}" for c in config.CATEGORIES})
@@ -69,10 +102,10 @@ def build_base_features(df: pd.DataFrame) -> pd.DataFrame:
 
     genres = df["genres"].apply(set)
     cats = df["categories"].apply(set)
-    for g, col in zip(config.GENRES, GENRE_COLS):
-        X[col] = genres.apply(lambda s: int(g in s))
-    for c, col in zip(config.CATEGORIES, CATEGORY_COLS):
-        X[col] = cats.apply(lambda s: int(c in s))
+    for g, col in zip(config.GENRES, GENRE_COLS, strict=True):
+        X[col] = [int(g in s) for s in genres]
+    for c, col in zip(config.CATEGORIES, CATEGORY_COLS, strict=True):
+        X[col] = [int(c in s) for s in cats]
     X["n_genres"] = X[GENRE_COLS].sum(axis=1)
     X["n_categories"] = X[CATEGORY_COLS].sum(axis=1)
     mp = [slug(c) for c in ["Multi-player", "PvP", "Online PvP", "Co-op", "Online Co-op", "MMO"]]
@@ -106,8 +139,15 @@ class TextScorer:
         self.alpha = alpha
 
     def _new(self):
-        vec = TfidfVectorizer(max_features=self.max_features, ngram_range=(1, 2), min_df=5,
-                              max_df=0.6, sublinear_tf=True, stop_words="english", dtype=np.float32)
+        vec = TfidfVectorizer(
+            max_features=self.max_features,
+            ngram_range=(1, 2),
+            min_df=5,
+            max_df=0.6,
+            sublinear_tf=True,
+            stop_words="english",
+            dtype=np.float32,
+        )
         return vec, Ridge(alpha=self.alpha)
 
     def fit(self, texts: pd.Series, y: np.ndarray):
@@ -132,4 +172,5 @@ class TextScorer:
         terms = np.array(self.vec.get_feature_names_out())
         coef = self.model.coef_
         order = np.argsort(coef)
-        return list(zip(terms[order[-k:][::-1]], coef[order[-k:][::-1]])), list(zip(terms[order[:k]], coef[order[:k]]))
+        top, bottom = order[-k:][::-1], order[:k]
+        return list(zip(terms[top], coef[top], strict=True)), list(zip(terms[bottom], coef[bottom], strict=True))

@@ -1,20 +1,21 @@
 """Clean the raw dataset and write data/processed/games_clean.parquet.
 
-Usage: python -m src.prepare_data
+Usage: python -m gamesense.pipeline.prepare_data
 """
+
 import html
 import re
 
 import numpy as np
 import pandas as pd
 
-from src import config
+from gamesense import config
 
 HTML_TAG = re.compile(r"<[^>]+>")
 SPACES = re.compile(r"\s+")
 
 
-def clean_text(text: str, max_chars: int = 3000) -> str:
+def clean_text(text: str | None, max_chars: int = 3000) -> str:
     text = html.unescape(HTML_TAG.sub(" ", text or ""))
     return SPACES.sub(" ", text).strip()[:max_chars]
 
@@ -35,9 +36,7 @@ def prior_history(df: pd.DataFrame, key: str, prefix: str) -> pd.DataFrame:
     )
     g = per_day.groupby(key)
     per_day[f"{prefix}_prior_games"] = g["n_games"].cumsum() - per_day["n_games"]
-    per_day[f"{prefix}_prior_best_reviews"] = (
-        g["best"].cummax().groupby(per_day[key]).shift(1).fillna(0)
-    )
+    per_day[f"{prefix}_prior_best_reviews"] = g["best"].cummax().groupby(per_day[key]).shift(1).fillna(0)
     cols = [key, "release_date", f"{prefix}_prior_games", f"{prefix}_prior_best_reviews"]
     return df.merge(per_day[cols], on=[key, "release_date"], how="left")
 
@@ -46,21 +45,23 @@ def main() -> None:
     raw = pd.read_parquet(config.RAW_PATH)
     print(f"raw rows: {len(raw):,}")
 
-    df = pd.DataFrame({
-        "app_id": raw["appID"].astype(str),
-        "name": raw["name"].fillna(""),
-        "release_date": pd.to_datetime(raw["release_date"], format="mixed", errors="coerce"),
-        "estimated_owners": raw["estimated_owners"],
-        "price": raw["price"].astype(float),
-        "windows": raw["windows"].astype(int),
-        "mac": raw["mac"].astype(int),
-        "linux": raw["linux"].astype(int),
-        "required_age": raw["required_age"].astype(int),
-        "achievements": raw["achievements"].astype(int),
-        "positive": raw["positive"].astype(int),
-        "negative": raw["negative"].astype(int),
-        "has_website": (raw["website"].fillna("").str.len() > 0).astype(int),
-    })
+    df = pd.DataFrame(
+        {
+            "app_id": raw["appID"].astype(str),
+            "name": raw["name"].fillna(""),
+            "release_date": pd.to_datetime(raw["release_date"], format="mixed", errors="coerce"),
+            "estimated_owners": raw["estimated_owners"],
+            "price": raw["price"].astype(float),
+            "windows": raw["windows"].astype(int),
+            "mac": raw["mac"].astype(int),
+            "linux": raw["linux"].astype(int),
+            "required_age": raw["required_age"].astype(int),
+            "achievements": raw["achievements"].astype(int),
+            "positive": raw["positive"].astype(int),
+            "negative": raw["negative"].astype(int),
+            "has_website": (raw["website"].fillna("").str.len() > 0).astype(int),
+        }
+    )
     df["genres"] = raw["genres"].apply(to_list)
     df["categories"] = raw["categories"].apply(to_list)
     df["developers"] = raw["developers"].apply(to_list)
@@ -70,9 +71,7 @@ def main() -> None:
     df["n_screenshots"] = raw["screenshots"].apply(lambda a: len(to_list(a)))
     df["short_description"] = raw["short_description"].apply(lambda t: clean_text(t, 400))
     df["about"] = raw["detailed_description"].apply(clean_text)
-    df["about_words"] = raw["detailed_description"].apply(
-        lambda t: len(clean_text(t, 10**6).split())
-    )
+    df["about_words"] = raw["detailed_description"].apply(lambda t: len(clean_text(t, 10**6).split()))
 
     steps = []
 
@@ -86,10 +85,17 @@ def main() -> None:
     keep(df["genres"].str.len() > 0, "empty store page (no genres)")
     keep(df["about_words"] > 0, "no description")
     keep(df["estimated_owners"] != "0 - 0", "not tracked by SteamSpy (owners '0 - 0')")
-    keep(~df["genres"].apply(lambda g: bool(set(g) & config.NON_GAME_GENRES) and not
-                             (set(g) & {"Action", "Adventure", "RPG", "Strategy",
-                                        "Simulation", "Casual", "Sports", "Racing"})),
-         "software, not a game")
+    keep(
+        ~df["genres"].apply(
+            lambda g: (
+                bool(set(g) & config.NON_GAME_GENRES)
+                and not (
+                    set(g) & {"Action", "Adventure", "RPG", "Strategy", "Simulation", "Casual", "Sports", "Racing"}
+                )
+            )
+        ),
+        "software, not a game",
+    )
     keep(df["price"] <= 100, "price above $100")
 
     df["total_reviews"] = df["positive"] + df["negative"]
@@ -107,8 +113,7 @@ def main() -> None:
 
     df["year"] = df["release_date"].dt.year
     df["month"] = df["release_date"].dt.month
-    keep(df["year"].between(config.YEAR_MIN, config.YEAR_MAX),
-         f"released outside {config.YEAR_MIN}-{config.YEAR_MAX}")
+    keep(df["year"].between(config.YEAR_MIN, config.YEAR_MAX), f"released outside {config.YEAR_MIN}-{config.YEAR_MAX}")
 
     df["tier"] = pd.cut(df["total_reviews"], config.TIER_BINS, labels=False).astype(int)
     df["positive_ratio"] = np.where(df["total_reviews"] > 0, df["positive"] / df["total_reviews"].clip(lower=1), np.nan)

@@ -2,8 +2,9 @@
 
 Writes models/best_params.json.
 
-Usage: python -m src.tune --trials 40
+Usage: python -m gamesense.pipeline.tune --trials 40
 """
+
 import argparse
 import json
 
@@ -13,9 +14,9 @@ import optuna
 import xgboost as xgb
 from sklearn.metrics import log_loss
 
-from src import config
-from src.experiments import load_split
-from src.features import FEATURE_COLS, TEXT_COL, TextScorer, build_base_features, game_text
+from gamesense import config
+from gamesense.features import FEATURE_COLS, TEXT_COL, TextScorer, build_base_features, game_text
+from gamesense.pipeline.experiments import load_split
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
@@ -32,8 +33,13 @@ def prepare():
 def xgb_objective(Xtr, ytr, Xva, yva):
     def objective(trial):
         params = dict(
-            n_estimators=3000, early_stopping_rounds=100, tree_method="hist", n_jobs=-1,
-            objective="multi:softprob", eval_metric="mlogloss", random_state=config.RANDOM_STATE,
+            n_estimators=3000,
+            early_stopping_rounds=100,
+            tree_method="hist",
+            n_jobs=-1,
+            objective="multi:softprob",
+            eval_metric="mlogloss",
+            random_state=config.RANDOM_STATE,
             learning_rate=trial.suggest_float("learning_rate", 0.02, 0.15, log=True),
             max_depth=trial.suggest_int("max_depth", 3, 10),
             min_child_weight=trial.suggest_float("min_child_weight", 1, 50, log=True),
@@ -46,14 +52,19 @@ def xgb_objective(Xtr, ytr, Xva, yva):
         m = xgb.XGBClassifier(**params).fit(Xtr, ytr, eval_set=[(Xva, yva)], verbose=False)
         trial.set_user_attr("n_estimators", int(m.best_iteration) + 1)
         return log_loss(yva, m.predict_proba(Xva))
+
     return objective
 
 
 def lgb_objective(Xtr, ytr, Xva, yva):
     def objective(trial):
         params = dict(
-            n_estimators=3000, objective="multiclass", verbose=-1, n_jobs=-1,
-            random_state=config.RANDOM_STATE, subsample_freq=1,
+            n_estimators=3000,
+            objective="multiclass",
+            verbose=-1,
+            n_jobs=-1,
+            random_state=config.RANDOM_STATE,
+            subsample_freq=1,
             learning_rate=trial.suggest_float("learning_rate", 0.02, 0.15, log=True),
             num_leaves=trial.suggest_int("num_leaves", 15, 255, log=True),
             min_child_samples=trial.suggest_int("min_child_samples", 10, 200, log=True),
@@ -63,9 +74,11 @@ def lgb_objective(Xtr, ytr, Xva, yva):
             reg_alpha=trial.suggest_float("reg_alpha", 1e-3, 10, log=True),
         )
         m = lgb.LGBMClassifier(**params).fit(
-            Xtr, ytr, eval_set=[(Xva, yva)], callbacks=[lgb.early_stopping(100, verbose=False)])
+            Xtr, ytr, eval_set=[(Xva, yva)], callbacks=[lgb.early_stopping(100, verbose=False)]
+        )
         trial.set_user_attr("n_estimators", int(m.best_iteration_))
         return log_loss(yva, m.predict_proba(Xva))
+
     return objective
 
 
@@ -84,7 +97,7 @@ def main():
         print(f"{name}: best valid log loss {study.best_value:.4f}  {params}")
 
     config.MODELS_DIR.mkdir(parents=True, exist_ok=True)
-    (config.MODELS_DIR / "best_params.json").write_text(json.dumps(best, indent=2))
+    (config.MODELS_DIR / "best_params.json").write_text(json.dumps(best, indent=2) + "\n")
 
 
 if __name__ == "__main__":

@@ -1,8 +1,9 @@
 """Reliability checks for a single prediction, based on held-out 2024 results."""
+
 import numpy as np
 import pandas as pd
 
-from src import config
+from gamesense import config
 
 
 def confidence_level(proba: np.ndarray) -> tuple[str, str]:
@@ -32,8 +33,12 @@ def calibration_check(test: pd.DataFrame, success_chance: float, width: float = 
     p = test.p_success + test.p_hit
     lo, hi = max(0.0, success_chance - width), min(1.0, success_chance + width)
     near = test[(p >= lo) & (p <= hi)]
-    return {"games": len(near), "low": lo, "high": hi,
-            "actual_rate": float((near.tier >= 2).mean()) if len(near) else float("nan")}
+    return {
+        "games": len(near),
+        "low": lo,
+        "high": hi,
+        "actual_rate": float((near.tier >= 2).mean()) if len(near) else float("nan"),
+    }
 
 
 def input_warnings(game: dict, market: pd.DataFrame) -> list[str]:
@@ -42,8 +47,10 @@ def input_warnings(game: dict, market: pd.DataFrame) -> list[str]:
     if game["genres"]:
         similar = market.genres.apply(lambda g: set(game["genres"]) <= set(g)).sum()
         if similar < 100:
-            notes.append(f"Only {similar} games in the data share this exact genre combination, "
-                         "so the model has few comparable examples.")
+            notes.append(
+                f"Only {similar} games in the data share this exact genre combination, "
+                "so the model has few comparable examples."
+            )
     if game["about_words"] < 20:
         notes.append("There is no real store description, so the text part of the model is not used.")
     if game["price"] > 60:

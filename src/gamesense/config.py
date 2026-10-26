@@ -1,12 +1,14 @@
 """Paths, feature vocabularies and target definition."""
+
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 RAW_PATH = ROOT / "data" / "raw" / "steam_games.parquet"
 PROCESSED_PATH = ROOT / "data" / "processed" / "games_clean.parquet"
 MODELS_DIR = ROOT / "models"
 REPORTS_DIR = ROOT / "reports"
 FIGURES_DIR = REPORTS_DIR / "figures"
+APP_DATA_PATH = ROOT / "app" / "data" / "insights.parquet"
 
 RANDOM_STATE = 42
 
@@ -27,27 +29,71 @@ TIER_BLURBS = {
 }
 
 NON_GAME_GENRES = {
-    "Utilities", "Design & Illustration", "Animation & Modeling", "Education",
-    "Video Production", "Game Development", "Audio Production", "Software Training",
-    "Photo Editing", "Web Publishing", "Accounting", "Movie", "Documentary",
-    "Episodic", "Short", "Tutorial", "360 Video",
+    "Utilities",
+    "Design & Illustration",
+    "Animation & Modeling",
+    "Education",
+    "Video Production",
+    "Game Development",
+    "Audio Production",
+    "Software Training",
+    "Photo Editing",
+    "Web Publishing",
+    "Accounting",
+    "Movie",
+    "Documentary",
+    "Episodic",
+    "Short",
+    "Tutorial",
+    "360 Video",
 }
 
 GENRES = [
-    "Indie", "Casual", "Action", "Adventure", "Simulation", "Strategy", "RPG",
-    "Free To Play", "Early Access", "Sports", "Racing", "Massively Multiplayer",
-    "Violent", "Gore", "Nudity", "Sexual Content",
+    "Indie",
+    "Casual",
+    "Action",
+    "Adventure",
+    "Simulation",
+    "Strategy",
+    "RPG",
+    "Free To Play",
+    "Early Access",
+    "Sports",
+    "Racing",
+    "Massively Multiplayer",
+    "Violent",
+    "Gore",
+    "Nudity",
+    "Sexual Content",
 ]
 
 # Excluded as leaky: Steam Trading Cards and Profile Features Limited depend on
 # sales, Family Sharing and Steam Timeline were added to most games after launch.
 CATEGORIES = [
-    "Single-player", "Multi-player", "PvP", "Online PvP", "Co-op", "Online Co-op",
-    "Shared/Split Screen", "Cross-Platform Multiplayer", "MMO", "Steam Achievements",
-    "Steam Cloud", "Full controller support", "Partial Controller Support",
-    "Steam Leaderboards", "Remote Play Together", "Steam Workshop", "In-App Purchases",
-    "VR Only", "VR Supported", "Includes level editor", "Stats", "Captions available",
-    "LAN Co-op", "LAN PvP",
+    "Single-player",
+    "Multi-player",
+    "PvP",
+    "Online PvP",
+    "Co-op",
+    "Online Co-op",
+    "Shared/Split Screen",
+    "Cross-Platform Multiplayer",
+    "MMO",
+    "Steam Achievements",
+    "Steam Cloud",
+    "Full controller support",
+    "Partial Controller Support",
+    "Steam Leaderboards",
+    "Remote Play Together",
+    "Steam Workshop",
+    "In-App Purchases",
+    "VR Only",
+    "VR Supported",
+    "Includes level editor",
+    "Stats",
+    "Captions available",
+    "LAN Co-op",
+    "LAN PvP",
 ]
 
 TARGET_REVIEWS = "total_reviews"

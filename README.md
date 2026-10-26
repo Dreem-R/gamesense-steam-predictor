@@ -1,5 +1,7 @@
 # GameSense: Steam Success Predictor
 
+[![CI](https://github.com/Dreem-R/gamesense-steam-predictor/actions/workflows/ci.yml/badge.svg)](https://github.com/Dreem-R/gamesense-steam-predictor/actions/workflows/ci.yml)
+
 A machine learning model that estimates how a game is likely to perform on Steam using only information available before launch: store page setup, genres, price, platforms, localisation and the studio's track record.
 
 **Live demo:** [gamesense-steam-predictor.streamlit.app](https://gamesense-steam-predictor.streamlit.app/)
@@ -29,7 +31,7 @@ About 15,000 games were released on Steam in 2024, and most of them sold very fe
 
 [Steam Games Dataset](https://huggingface.co/datasets/FronkonGames/steam-games-dataset) by FronkonGames (124,146 apps).
 
-Cleaning steps (`src/prepare_data.py`):
+Cleaning steps (`src/gamesense/pipeline/prepare_data.py`):
 
 - removed apps with empty store pages, no description, or no SteamSpy tracking
 - removed software (utilities, video/audio tools, etc.) and prices above $100
@@ -96,41 +98,65 @@ The full metrics are in `models/metrics.json` and `reports/model_comparison_test
 ## Project structure
 
 ```
-├── app/
-│   ├── streamlit_app.py        entry point
-│   ├── common.py               cached loaders
-│   ├── presets.py              example games
-│   ├── data/insights.parquet   reduced dataset for the insights page
-│   └── views/                  predict, insights, how_it_works
-├── src/
-│   ├── config.py               paths, splits, tiers, feature vocabularies
-│   ├── prepare_data.py         cleaning and studio history
-│   ├── features.py             feature engineering and text model
-│   ├── eda.py                  figures and app dataset
-│   ├── experiments.py          baseline comparison
-│   ├── tune.py                 Optuna search
-│   ├── train.py                final training, evaluation, export
+├── app/                            Streamlit app
+│   ├── streamlit_app.py            entry point
+│   ├── common.py                   cached loaders
+│   ├── data/insights.parquet       reduced dataset for the insights page
+│   └── views/                      predict, insights, how_it_works
+├── src/gamesense/                  installable package
+│   ├── config.py                   paths, splits, tiers, feature vocabularies
+│   ├── features.py                 feature engineering and text model
+│   ├── predictor.py                inference, explanations, suggestions
+│   ├── reliability.py              per-prediction reliability checks
 │   ├── metrics.py
-│   ├── predictor.py            inference, explanations, suggestions
-│   └── reliability.py          per-prediction reliability checks
-├── models/                     gamesense.joblib, best_params.json, metrics.json
-├── reports/                    figures and comparison tables
-├── requirements.txt            app dependencies
-├── requirements-dev.txt        training dependencies
-└── packages.txt                system packages for Streamlit Community Cloud
+│   ├── presets.py                  example games
+│   └── pipeline/                   training pipeline
+│       ├── prepare_data.py         cleaning and studio history
+│       ├── eda.py                  figures and app dataset
+│       ├── experiments.py          baseline comparison
+│       ├── tune.py                 Optuna search
+│       └── train.py                final training, evaluation, export
+├── tests/                          pytest suite
+├── models/                         gamesense.joblib, best_params.json, metrics.json
+├── reports/                        figures and comparison tables
+├── pyproject.toml                  package metadata and tool configuration
+├── requirements.txt                exact versions for the deployed app
+└── packages.txt                    system packages for Streamlit Community Cloud
 ```
 
 ## Running locally
 
+Requires Python 3.12.
+
 ```bash
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 streamlit run app/streamlit_app.py
 ```
 
+## Development
+
+```bash
+pip install -r requirements.txt -e ".[dev,train]"
+pre-commit install
+```
+
+Checks, also run by CI on every push and pull request:
+
+```bash
+ruff check .
+ruff format --check .
+mypy
+pytest
+```
+
+The tests cover feature engineering, the leakage-sensitive studio history, metrics, reliability checks, the trained model's outputs and suggestions, and each page of the app. `tests/data/preset_predictions.json` stores the expected predictions for the example games. After retraining, regenerate it with `UPDATE_SNAPSHOT=1 pytest tests/test_predictor.py` and review the diff.
+
 ## Reproducing the model
 
 ```bash
-pip install -r requirements-dev.txt
+pip install -r requirements.txt -e ".[train]"
 ```
 
 Download the dataset (about 190 MB) to `data/raw/steam_games.parquet`:
@@ -142,11 +168,11 @@ curl -L --create-dirs -o data/raw/steam_games.parquet https://huggingface.co/api
 Then run the pipeline:
 
 ```bash
-python -m src.prepare_data
-python -m src.eda
-python -m src.experiments
-python -m src.tune --trials 40
-python -m src.train
+python -m gamesense.pipeline.prepare_data
+python -m gamesense.pipeline.eda
+python -m gamesense.pipeline.experiments
+python -m gamesense.pipeline.tune --trials 40
+python -m gamesense.pipeline.train
 ```
 
 On a laptop CPU, tuning takes about an hour and training about 11 minutes.

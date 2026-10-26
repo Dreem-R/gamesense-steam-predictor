@@ -1,7 +1,8 @@
 """Baseline model comparison: train on 2018-2022, validate on 2023.
 
-Usage: python -m src.experiments
+Usage: python -m gamesense.pipeline.experiments
 """
+
 import time
 
 import lightgbm as lgb
@@ -14,9 +15,17 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
-from src import config
-from src.features import BASE_COLS, CATEGORY_COLS, GENRE_COLS, TEXT_COL, TextScorer, build_base_features, game_text
-from src.metrics import tier_metrics
+from gamesense import config
+from gamesense.features import (
+    BASE_COLS,
+    CATEGORY_COLS,
+    GENRE_COLS,
+    TEXT_COL,
+    TextScorer,
+    build_base_features,
+    game_text,
+)
+from gamesense.metrics import tier_metrics
 
 
 def load_split():
@@ -47,17 +56,49 @@ def main():
     models = {
         "Baseline (majority class)": (DummyClassifier(strategy="prior"), no_text),
         "Logistic Regression": (make_pipeline(StandardScaler(), LogisticRegression(max_iter=2000, C=0.5)), with_text),
-        "Random Forest": (RandomForestClassifier(n_estimators=400, min_samples_leaf=3, n_jobs=-1,
-                                                 random_state=config.RANDOM_STATE), with_text),
-        "XGBoost": (xgb.XGBClassifier(n_estimators=600, learning_rate=0.05, max_depth=6, subsample=0.8,
-                                      colsample_bytree=0.8, tree_method="hist", n_jobs=-1,
-                                      random_state=config.RANDOM_STATE), with_text),
-        "LightGBM (no text)": (lgb.LGBMClassifier(n_estimators=600, learning_rate=0.05, num_leaves=63,
-                                                  subsample=0.8, subsample_freq=1, colsample_bytree=0.8,
-                                                  verbose=-1, random_state=config.RANDOM_STATE), no_text),
-        "LightGBM": (lgb.LGBMClassifier(n_estimators=600, learning_rate=0.05, num_leaves=63,
-                                        subsample=0.8, subsample_freq=1, colsample_bytree=0.8,
-                                        verbose=-1, random_state=config.RANDOM_STATE), with_text),
+        "Random Forest": (
+            RandomForestClassifier(n_estimators=400, min_samples_leaf=3, n_jobs=-1, random_state=config.RANDOM_STATE),
+            with_text,
+        ),
+        "XGBoost": (
+            xgb.XGBClassifier(
+                n_estimators=600,
+                learning_rate=0.05,
+                max_depth=6,
+                subsample=0.8,
+                colsample_bytree=0.8,
+                tree_method="hist",
+                n_jobs=-1,
+                random_state=config.RANDOM_STATE,
+            ),
+            with_text,
+        ),
+        "LightGBM (no text)": (
+            lgb.LGBMClassifier(
+                n_estimators=600,
+                learning_rate=0.05,
+                num_leaves=63,
+                subsample=0.8,
+                subsample_freq=1,
+                colsample_bytree=0.8,
+                verbose=-1,
+                random_state=config.RANDOM_STATE,
+            ),
+            no_text,
+        ),
+        "LightGBM": (
+            lgb.LGBMClassifier(
+                n_estimators=600,
+                learning_rate=0.05,
+                num_leaves=63,
+                subsample=0.8,
+                subsample_freq=1,
+                colsample_bytree=0.8,
+                verbose=-1,
+                random_state=config.RANDOM_STATE,
+            ),
+            with_text,
+        ),
     }
     rows = []
     for name, (model, cols) in models.items():
@@ -67,8 +108,10 @@ def main():
         m = tier_metrics(yva, proba, reviews_true=va.total_reviews.values)
         m["model"], m["seconds"] = name, round(time.time() - t, 1)
         rows.append(m)
-        print(f"{name:28s} macroF1={m['macro_f1']:.3f} qwk={m['qwk']:.3f} auc={m['auc_ovr']:.3f} "
-              f"logloss={m['log_loss']:.3f} spearman={m['spearman_reviews']:.3f}")
+        print(
+            f"{name:28s} macroF1={m['macro_f1']:.3f} qwk={m['qwk']:.3f} auc={m['auc_ovr']:.3f} "
+            f"logloss={m['log_loss']:.3f} spearman={m['spearman_reviews']:.3f}"
+        )
 
     res = pd.DataFrame(rows).set_index("model").round(4)
     config.REPORTS_DIR.mkdir(parents=True, exist_ok=True)

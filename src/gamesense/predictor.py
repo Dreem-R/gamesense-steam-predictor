@@ -1,15 +1,17 @@
 """Inference wrapper: predictions, feature contributions and suggested changes."""
+
 # lightgbm must be imported before pyarrow, otherwise prediction segfaults on Windows.
 import lightgbm  # noqa: F401, I001
 
 from dataclasses import dataclass
+from typing import Any
 
 import joblib
 import numpy as np
 import pandas as pd
 
-from src import config
-from src.features import FRIENDLY_NAMES, TEXT_COL, build_base_features, game_text
+from gamesense import config
+from gamesense.features import FRIENDLY_NAMES, TEXT_COL, build_base_features, game_text
 
 MIN_DESCRIPTION_WORDS = 20
 
@@ -29,13 +31,13 @@ class GameSensePredictor:
     def __init__(self, path=config.MODELS_DIR / "gamesense.joblib"):
         b = joblib.load(path)
         self.b = b
-        self.cols = b["feature_cols"]
-        self.tier_names = b["tier_names"]
+        self.cols: list[str] = b["feature_cols"]
+        self.tier_names: list[str] = b["tier_names"]
 
     def features(self, games: pd.DataFrame) -> tuple[pd.DataFrame, np.ndarray]:
         X = build_base_features(games)
-        words = (games["short_description"].fillna("") + " " + games["about"].fillna("")).str.split().str.len()
-        used_text = (words >= MIN_DESCRIPTION_WORDS).values
+        words = (games["short_description"].fillna("") + " " + games["about"].fillna("")).str.count(r"\S+")
+        used_text = (words >= MIN_DESCRIPTION_WORDS).to_numpy()
         score = self.b["text_scorer"].predict(game_text(games))
         X[TEXT_COL] = np.where(used_text, score, self.b["feature_medians"][TEXT_COL])
         return X[self.cols], used_text
@@ -58,16 +60,23 @@ class GameSensePredictor:
         Genre flags are summed into one row."""
         X, _ = self.features(to_frame(game))
         contrib = self.b["quantile_models"]["mid"].predict(X, pred_contrib=True)[0][:-1]
-        s = pd.Series(contrib, index=self.cols)
-        genre = s[[c for c in self.cols if c.startswith("genre_")]].sum()
+        effects = dict(zip(self.cols, contrib, strict=True))
+        genre = sum(v for c, v in effects.items() if c.startswith("genre_"))
         # Release year is fixed to the latest training year, so it is not shown.
-        s = s[[c for c in self.cols if not c.startswith("genre_") and c != "year"]]
-        s["genres"] = genre
+        effects = {c: v for c, v in effects.items() if not c.startswith("genre_") and c != "year"}
+        effects["genres"] = genre
         rows = []
-        for col, val in s.items():
+        for col, val in effects.items():
             label = "Genre mix" if col == "genres" else FRIENDLY_NAMES.get(col, col)
-            rows.append({"feature": col, "label": label, "value": describe_value(col, X.iloc[0], game),
-                         "effect": float(val), "multiplier": float(np.exp(val))})
+            rows.append(
+                {
+                    "feature": col,
+                    "label": label,
+                    "value": describe_value(col, X.iloc[0], game),
+                    "effect": float(val),
+                    "multiplier": float(np.exp(val)),
+                }
+            )
         out = pd.DataFrame(rows)
         out = out.reindex(out.effect.abs().sort_values(ascending=False).index).head(top_k)
         return out.reset_index(drop=True)
@@ -109,15 +118,30 @@ class GameSensePredictor:
                     changes["categories"] = sorted(set(combined["categories"]) | set(changes["categories"]))
                 combined.update(changes)
             after = self.predict(combined)
-            plan = {"changes": [o["change"] for o in helpful], "success_after": after.success_chance,
-                    "reviews_after": after.reviews_mid, "tier_after": self.tier_names[after.tier]}
+            plan = {
+                "changes": [o["change"] for o in helpful],
+                "success_after": after.success_chance,
+                "reviews_after": after.reviews_mid,
+                "tier_after": self.tier_names[after.tier],
+            }
         return out, plan
 
 
 MIN_UPLIFT = 0.01
 MIN_REVIEW_RATIO = 1.15
-SUGGESTION_COLS = ["change", "detail", "area", "effort", "success_before", "success_after", "uplift",
-                   "reviews_before", "reviews_after", "reviews_ratio", "helps"]
+SUGGESTION_COLS = [
+    "change",
+    "detail",
+    "area",
+    "effort",
+    "success_before",
+    "success_after",
+    "uplift",
+    "reviews_before",
+    "reviews_after",
+    "reviews_ratio",
+    "helps",
+]
 
 
 def candidate_changes(game: dict) -> list[dict]:
@@ -128,55 +152,100 @@ def candidate_changes(game: dict) -> list[dict]:
         options.append({"change": change, "detail": detail, "area": area, "effort": effort, "changes": changes})
 
     if game["n_screenshots"] < 10:
-        add("Show at least 10 screenshots",
+        add(
+            "Show at least 10 screenshots",
             "Cover different areas, mechanics and moods. Steam uses them in search previews and on the store page.",
-            "Store page", "Low", n_screenshots=10)
+            "Store page",
+            "Low",
+            n_screenshots=10,
+        )
     if not game["has_website"]:
-        add("Put up a game website",
+        add(
+            "Put up a game website",
             "A single page with the trailer, a press kit and store links is enough.",
-            "Store page", "Low", has_website=1)
+            "Store page",
+            "Low",
+            has_website=1,
+        )
     if "Steam Cloud" not in cats:
-        add("Enable Steam Cloud saves",
+        add(
+            "Enable Steam Cloud saves",
             "Mostly Steamworks configuration. Lets players continue on another PC or a Steam Deck.",
-            "Steam features", "Low", categories=sorted(cats | {"Steam Cloud"}))
+            "Steam features",
+            "Low",
+            categories=sorted(cats | {"Steam Cloud"}),
+        )
     if game["achievements"] == 0:
-        add("Add around 25 Steam Achievements",
+        add(
+            "Add around 25 Steam Achievements",
             "Gives players goals and puts the game in friends' activity feeds.",
-            "Steam features", "Medium", achievements=25, categories=sorted(cats | {"Steam Achievements"}))
+            "Steam features",
+            "Medium",
+            achievements=25,
+            categories=sorted(cats | {"Steam Achievements"}),
+        )
     if not cats & {"Full controller support", "Partial Controller Support"}:
-        add("Add full controller support",
+        add(
+            "Add full controller support",
             "Needed for a Steam Deck Verified rating and for couch players.",
-            "Steam features", "Medium", categories=sorted(cats | {"Full controller support"}))
+            "Steam features",
+            "Medium",
+            categories=sorted(cats | {"Full controller support"}),
+        )
     if game["n_languages"] < 8:
-        add("Localise into 8 languages",
+        add(
+            "Localise into 8 languages",
             "Common first targets are Simplified Chinese, Russian, Spanish, Brazilian Portuguese, German, "
             "French and Japanese. Costs depend heavily on how much text the game has.",
-            "Reach", "Medium", n_languages=8)
+            "Reach",
+            "Medium",
+            n_languages=8,
+        )
     if not game["linux"]:
-        add("Ship a native Linux build",
+        add(
+            "Ship a native Linux build",
             "Helps with Linux players and Steam Deck. Engines like Unity and Godot can export Linux builds.",
-            "Reach", "Medium", linux=1)
+            "Reach",
+            "Medium",
+            linux=1,
+        )
     if not game["mac"]:
-        add("Ship a macOS build",
-            "Requires testing on Apple hardware and notarisation.",
-            "Reach", "Medium", mac=1)
+        add("Ship a macOS build", "Requires testing on Apple hardware and notarisation.", "Reach", "Medium", mac=1)
     if 0 < game["price"] < 10:
-        add(f"Price at $14.99 instead of ${game['price']:.2f}",
+        add(
+            f"Price at $14.99 instead of ${game['price']:.2f}",
             "Very cheap games are often read as low effort. Only worth it if the content supports the price.",
-            "Pricing", "Low", price=14.99)
+            "Pricing",
+            "Low",
+            price=14.99,
+        )
     if game["price"] > 30:
-        add(f"Price at $24.99 instead of ${game['price']:.2f}",
+        add(
+            f"Price at $24.99 instead of ${game['price']:.2f}",
             "Few games from smaller studios sell well above $30.",
-            "Pricing", "Low", price=24.99)
+            "Pricing",
+            "Low",
+            price=24.99,
+        )
     if not cats & {"Co-op", "Online Co-op"}:
-        add("Add online co-op",
+        add(
+            "Add online co-op",
             "A design change with networking work. Only consider it if it fits the game.",
-            "Design", "High", categories=sorted(cats | {"Multi-player", "Co-op", "Online Co-op"}))
+            "Design",
+            "High",
+            categories=sorted(cats | {"Multi-player", "Co-op", "Online Co-op"}),
+        )
     if game["self_published"]:
-        add("Work with an established publisher",
+        add(
+            "Work with an established publisher",
             "Tested as a publisher with 50+ released games. Publishers take a revenue share in return "
             "for marketing, funding or porting.",
-            "Business", "High", self_published=0, pub_prior_games=50, pub_prior_best_reviews=5000)
+            "Business",
+            "High",
+            self_published=0,
+            pub_prior_games=50,
+            pub_prior_best_reviews=5000,
+        )
     return options
 
 
@@ -196,19 +265,46 @@ def describe_value(col: str, x: pd.Series, game: dict) -> str:
         return f"{int(round(np.expm1(v))):,}"
     if col == "price":
         return "Free" if v == 0 else f"${v:.2f}"
-    if col.startswith("cat_") or col in {"is_free", "windows", "mac", "linux", "mature", "has_website",
-                                          "self_published", "multiplayer_any", "controller_any"}:
+    if col.startswith("cat_") or col in {
+        "is_free",
+        "windows",
+        "mac",
+        "linux",
+        "mature",
+        "has_website",
+        "self_published",
+        "multiplayer_any",
+        "controller_any",
+    }:
         return "Yes" if v else "No"
     return f"{v:g}"
 
 
-def default_game(**overrides) -> dict:
-    g = dict(
-        name="My Game", short_description="", about="", about_words=0, price=9.99,
-        genres=["Indie"], categories=["Single-player"], windows=1, mac=0, linux=0,
-        required_age=0, achievements=0, n_languages=1, n_audio_languages=0, n_screenshots=6,
-        has_website=0, year=config.YEAR_MAX, month=10, dev_prior_games=0, dev_prior_best_reviews=0,
-        pub_prior_games=0, pub_prior_best_reviews=0, self_published=1,
+def default_game(**overrides: Any) -> dict[str, Any]:
+    g: dict[str, Any] = dict(
+        name="My Game",
+        short_description="",
+        about="",
+        about_words=0,
+        price=9.99,
+        genres=["Indie"],
+        categories=["Single-player"],
+        windows=1,
+        mac=0,
+        linux=0,
+        required_age=0,
+        achievements=0,
+        n_languages=1,
+        n_audio_languages=0,
+        n_screenshots=6,
+        has_website=0,
+        year=config.YEAR_MAX,
+        month=10,
+        dev_prior_games=0,
+        dev_prior_best_reviews=0,
+        pub_prior_games=0,
+        pub_prior_best_reviews=0,
+        self_published=1,
     )
     g.update(overrides)
     if "about_words" not in overrides:

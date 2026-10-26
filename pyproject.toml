@@ -1,0 +1,72 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gamesense"
+version = "0.1.0"
+description = "Predicts how a game will perform on Steam from pre-launch store page data."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "joblib>=1.5,<2",
+    "lightgbm>=4.7,<5",
+    "numpy>=2.2,<3",
+    "pandas>=2.2,<3",
+    "pyarrow>=16",
+    "scikit-learn>=1.7,<1.8",
+    "scipy>=1.15,<2",
+    "xgboost>=3.4,<4",
+]
+
+[project.optional-dependencies]
+app = ["plotly>=6,<7", "streamlit>=1.45,<2"]
+train = ["matplotlib>=3.9", "optuna>=5,<6", "seaborn>=0.13"]
+dev = [
+    "gamesense[app]",
+    "mypy==2.4.0",
+    "pandas-stubs",
+    "pre-commit==4.7.0",
+    "pytest==9.1.1",
+    "ruff==0.17.2",
+]
+
+[project.urls]
+Demo = "https://gamesense-steam-predictor.streamlit.app/"
+Source = "https://github.com/Dreem-R/gamesense-steam-predictor"
+
+[tool.setuptools.package-data]
+gamesense = ["py.typed"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+src = ["src", "app"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "NPY", "PD002"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["gamesense", "common"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src", "app", "tests"]
+mypy_path = "src,app"
+explicit_package_bases = true
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+[[tool.mypy.overrides]]
+module = ["joblib.*", "lightgbm.*", "optuna.*", "plotly.*", "scipy.*", "seaborn.*", "sklearn.*", "xgboost.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["app"]
+addopts = "-ra --strict-markers"
+filterwarnings = ["ignore::DeprecationWarning:streamlit.*"]

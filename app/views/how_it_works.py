@@ -2,9 +2,9 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from app.common import HIDDEN_GENRES, load_metrics, load_predictor
-from src import config
-from src.features import FRIENDLY_NAMES, slug
+from common import HIDDEN_GENRES, load_metrics, load_predictor
+from gamesense import config
+from gamesense.features import FRIENDLY_NAMES, slug
 
 metrics = load_metrics()
 predictor = load_predictor()
@@ -15,13 +15,16 @@ st.markdown(f"""
 **The question:** from things a developer knows *before launch*, can we predict how a game will do on Steam?
 
 **The data:** the public *Steam Games Dataset* (FronkonGames, Hugging Face), about 124k apps. After cleaning,
-**{metrics['rows_total']:,} games released 2018-2024** remain. Removed rows: empty store pages, software
+**{metrics["rows_total"]:,} games released 2018-2024** remain. Removed rows: empty store pages, software
 (not games), untracked apps and prices above \\$100.
 
 **The target:** total Steam reviews, the standard public stand-in for sales, grouped into four tiers:
 """)
-st.dataframe(pd.DataFrame({"Tier": config.TIER_NAMES, "Meaning": [config.TIER_BLURBS[t] for t in config.TIER_NAMES]}),
-             hide_index=True, use_container_width=True)
+st.dataframe(
+    pd.DataFrame({"Tier": config.TIER_NAMES, "Meaning": [config.TIER_BLURBS[t] for t in config.TIER_NAMES]}),
+    hide_index=True,
+    use_container_width=True,
+)
 
 st.subheader("Pipeline")
 st.graphviz_chart("""
@@ -50,11 +53,20 @@ st.markdown("""
 
 st.subheader("Results on 2024 releases (never seen during training)")
 test = pd.DataFrame(metrics["test_2024"]).T
-show = test[["accuracy", "macro_f1", "qwk", "within_1_tier", "auc_ovr", "auc_success_plus"]].rename(columns={
-    "accuracy": "Accuracy", "macro_f1": "Macro F1", "qwk": "Quadratic κ", "within_1_tier": "Within 1 tier",
-    "auc_ovr": "ROC-AUC (macro)", "auc_success_plus": "AUC: 100+ reviews?",
-})
-st.dataframe(show.style.format("{:.3f}").highlight_max(axis=0, color="#d8ecdf"), use_container_width=True)
+show = test[["accuracy", "macro_f1", "qwk", "within_1_tier", "auc_ovr", "auc_success_plus"]].rename(
+    columns={
+        "accuracy": "Accuracy",
+        "macro_f1": "Macro F1",
+        "qwk": "Quadratic κ",
+        "within_1_tier": "Within 1 tier",
+        "auc_ovr": "ROC-AUC (macro)",
+        "auc_success_plus": "AUC: 100+ reviews?",
+    }
+)
+st.dataframe(
+    show.style.format("{:.3f}").highlight_max(axis=0, props="background-color:#2f6b50;color:#ffffff;font-weight:600"),
+    use_container_width=True,
+)
 best = metrics["test_2024"]["GameSense ensemble"]
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("AUC: will it get 100+ reviews?", f"{best['auc_success_plus']:.3f}")
@@ -65,16 +77,21 @@ c4.metric(f"Macro F1 (baseline {baseline_f1:.2f})", f"{best['macro_f1']:.3f}")
 
 cm = pd.DataFrame(metrics["confusion_matrix_test_2024"], index=config.TIER_NAMES, columns=config.TIER_NAMES)
 cm_pct = cm.div(cm.sum(axis=1), axis=0)
-fig = px.imshow(cm_pct, text_auto=".0%", color_continuous_scale="Blues", aspect="auto",
-                labels=dict(x="Predicted", y="Actual", color="share of row"))
+fig = px.imshow(
+    cm_pct,
+    text_auto=".0%",
+    color_continuous_scale="Blues",
+    aspect="auto",
+    labels=dict(x="Predicted", y="Actual", color="share of row"),
+)
 fig.update_layout(height=360, margin=dict(l=0, r=0, t=30, b=0), title="Confusion matrix (row %)")
 st.plotly_chart(fig, use_container_width=True)
 
 r = metrics["review_range_test_2024"]
 st.markdown(f"""
 **Review-count estimate** (quantile regression): the median estimate lands within 3x of the true review count
-for **{r['within_x3_of_actual']:.0%}** of 2024 games. The 10th-90th percentile range contains the true value
-for **{r['interval_80_coverage']:.0%}** of games (Spearman ρ = {r['spearman']:.2f}).
+for **{r["within_x3_of_actual"]:.0%}** of 2024 games. The 10th-90th percentile range contains the true value
+for **{r["interval_80_coverage"]:.0%}** of games (Spearman ρ = {r["spearman"]:.2f}).
 """)
 
 st.subheader("What drives the prediction overall")
@@ -82,10 +99,16 @@ imp = pd.Series(predictor.b["lgb"].booster_.feature_importance("gain"), index=pr
 imp = imp / imp.sum()
 imp = imp[[c for c in imp.index if c not in {f"genre_{slug(g)}" for g in HIDDEN_GENRES}]]
 imp = imp.sort_values(ascending=False).head(15).iloc[::-1]
-fig = px.bar(x=imp.values, y=[FRIENDLY_NAMES.get(i, i) for i in imp.index], orientation="h",
-             color_discrete_sequence=["#2e86ab"])
-fig.update_layout(height=450, margin=dict(l=0, r=0, t=10, b=0), xaxis_title="share of total gain",
-                  yaxis_title=None, xaxis_tickformat=".0%")
+fig = px.bar(
+    x=imp.values, y=[FRIENDLY_NAMES.get(i, i) for i in imp.index], orientation="h", color_discrete_sequence=["#2e86ab"]
+)
+fig.update_layout(
+    height=450,
+    margin=dict(l=0, r=0, t=10, b=0),
+    xaxis_title="share of total gain",
+    yaxis_title=None,
+    xaxis_tickformat=".0%",
+)
 st.plotly_chart(fig, use_container_width=True)
 
 st.subheader("Limitations")

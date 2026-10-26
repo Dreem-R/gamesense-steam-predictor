@@ -4,8 +4,9 @@
   1. train 2018-2023, predict 2024: held-out test metrics
   2. train 2018-2024: model saved to models/gamesense.joblib
 
-Usage: python -m src.train
+Usage: python -m gamesense.pipeline.train
 """
+
 import json
 import time
 
@@ -21,9 +22,9 @@ from sklearn.metrics import confusion_matrix, f1_score, log_loss
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
-from src import config
-from src.features import FEATURE_COLS, TEXT_COL, TextScorer, build_base_features, game_text
-from src.metrics import tier_metrics
+from gamesense import config
+from gamesense.features import FEATURE_COLS, TEXT_COL, TextScorer, build_base_features, game_text
+from gamesense.metrics import tier_metrics
 
 QUANTILES = {"low": 0.1, "mid": 0.5, "high": 0.9}
 
@@ -34,19 +35,32 @@ def load_params():
 
 
 def make_xgb(p):
-    return xgb.XGBClassifier(**p, objective="multi:softprob", tree_method="hist", n_jobs=-1,
-                             random_state=config.RANDOM_STATE)
+    return xgb.XGBClassifier(
+        **p, objective="multi:softprob", tree_method="hist", n_jobs=-1, random_state=config.RANDOM_STATE
+    )
 
 
 def make_lgb(p):
-    return lgb.LGBMClassifier(**p, objective="multiclass", subsample_freq=1, verbose=-1, n_jobs=-1,
-                              random_state=config.RANDOM_STATE)
+    return lgb.LGBMClassifier(
+        **p, objective="multiclass", subsample_freq=1, verbose=-1, n_jobs=-1, random_state=config.RANDOM_STATE
+    )
 
 
 def make_quantile(alpha):
-    return lgb.LGBMRegressor(objective="quantile", alpha=alpha, n_estimators=700, learning_rate=0.04,
-                             num_leaves=63, min_child_samples=40, subsample=0.8, subsample_freq=1,
-                             colsample_bytree=0.8, verbose=-1, n_jobs=-1, random_state=config.RANDOM_STATE)
+    return lgb.LGBMRegressor(
+        objective="quantile",
+        alpha=alpha,
+        n_estimators=700,
+        learning_rate=0.04,
+        num_leaves=63,
+        min_child_samples=40,
+        subsample=0.8,
+        subsample_freq=1,
+        colsample_bytree=0.8,
+        verbose=-1,
+        n_jobs=-1,
+        random_state=config.RANDOM_STATE,
+    )
 
 
 def featurize(train_df, other_df=None):
@@ -89,8 +103,10 @@ def main():
     losses = [log_loss(valid.tier, w * p_x + (1 - w) * p_l) for w in w_grid]
     w_xgb = float(w_grid[int(np.argmin(losses))])
     p_va = w_xgb * p_x + (1 - w_xgb) * p_l
-    print(f"  blend w_xgb={w_xgb:.1f}  valid log loss={min(losses):.4f}  "
-          f"macro F1={f1_score(valid.tier, p_va.argmax(1), average='macro'):.3f}")
+    print(
+        f"  blend w_xgb={w_xgb:.1f}  valid log loss={min(losses):.4f}  "
+        f"macro F1={f1_score(valid.tier, p_va.argmax(1), average='macro'):.3f}"
+    )
 
     # Stage 1
     print("stage 1: test (train 2018-23 -> 2024)")
@@ -102,9 +118,14 @@ def main():
     comparison = {}
     baselines = {
         "Baseline: majority class": (DummyClassifier(strategy="prior"), base_cols),
-        "Logistic Regression": (make_pipeline(StandardScaler(), LogisticRegression(max_iter=3000, C=0.5)), FEATURE_COLS),
-        "Random Forest": (RandomForestClassifier(n_estimators=500, min_samples_leaf=3, n_jobs=-1,
-                                                 random_state=config.RANDOM_STATE), FEATURE_COLS),
+        "Logistic Regression": (
+            make_pipeline(StandardScaler(), LogisticRegression(max_iter=3000, C=0.5)),
+            FEATURE_COLS,
+        ),
+        "Random Forest": (
+            RandomForestClassifier(n_estimators=500, min_samples_leaf=3, n_jobs=-1, random_state=config.RANDOM_STATE),
+            FEATURE_COLS,
+        ),
     }
     for name, (m, cols) in baselines.items():
         m.fit(Xtv[cols], ytv)
@@ -165,14 +186,16 @@ def main():
     joblib.dump(bundle, config.MODELS_DIR / "gamesense.joblib", compress=3)
 
     summary = {
-        "rows_total": len(df), "rows_trainval": len(trval), "rows_test": len(test),
+        "rows_total": len(df),
+        "rows_trainval": len(trval),
+        "rows_test": len(test),
         "blend_w_xgb": w_xgb,
         "test_2024": comp.to_dict(orient="index"),
         "review_range_test_2024": reg_metrics,
         "confusion_matrix_test_2024": confusion_matrix(yte, final_pred).tolist(),
         "test_tier_distribution": pd.Series(yte).value_counts(normalize=True).sort_index().round(4).tolist(),
     }
-    (config.MODELS_DIR / "metrics.json").write_text(json.dumps(summary, indent=2))
+    (config.MODELS_DIR / "metrics.json").write_text(json.dumps(summary, indent=2) + "\n")
     print(f"done in {(time.time() - t0) / 60:.1f} min")
 
 

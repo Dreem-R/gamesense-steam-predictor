@@ -1,17 +1,12 @@
 """Cached loaders and display constants."""
+
 import json
-import sys
-from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-from src import config  # noqa: E402
-from src.predictor import GameSensePredictor  # noqa: E402
+from gamesense import config
+from gamesense.predictor import GameSensePredictor
 
 # Used by the model but not offered as choices in the app.
 HIDDEN_GENRES = {"Nudity", "Sexual Content"}
@@ -33,7 +28,7 @@ def load_predictor() -> GameSensePredictor:
 
 @st.cache_data
 def load_insights() -> pd.DataFrame:
-    df = pd.read_parquet(ROOT / "app" / "data" / "insights.parquet")
+    df = pd.read_parquet(config.APP_DATA_PATH)
     df["genres"] = df["genres"].str.split("|")
     df["categories"] = df["categories"].str.split("|")
     df["success"] = df["tier"] >= 2

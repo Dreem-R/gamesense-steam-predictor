@@ -1,8 +1,15 @@
 """Evaluation helpers."""
+
 import numpy as np
 from scipy.stats import spearmanr
-from sklearn.metrics import (accuracy_score, balanced_accuracy_score, cohen_kappa_score,
-                             f1_score, log_loss, roc_auc_score)
+from sklearn.metrics import (
+    accuracy_score,
+    balanced_accuracy_score,
+    cohen_kappa_score,
+    f1_score,
+    log_loss,
+    roc_auc_score,
+)
 
 
 def tier_metrics(y_true, proba=None, y_pred=None, reviews_true=None, score=None) -> dict:
