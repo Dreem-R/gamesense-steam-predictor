@@ -10,7 +10,6 @@ Usage: python -m gamesense.pipeline.train
 import json
 import time
 
-import joblib
 import lightgbm as lgb
 import numpy as np
 import pandas as pd
@@ -23,6 +22,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
 from gamesense import config
+from gamesense.bundle import ModelBundle
 from gamesense.features import FEATURE_COLS, TEXT_COL, TextScorer, build_base_features, game_text
 from gamesense.metrics import tier_metrics
 
@@ -171,19 +171,18 @@ def main():
     y_log_all = np.log1p(df.total_reviews.values)
     quantile_models = {k: make_quantile(a).fit(Xall, y_log_all) for k, a in QUANTILES.items()}
 
-    bundle = {
-        "text_scorer": scorer,
-        "xgb": ens[0],
-        "lgb": ens[1],
-        "w_xgb": w_xgb,
-        "quantile_models": quantile_models,
-        "feature_cols": FEATURE_COLS,
-        "tier_names": config.TIER_NAMES,
-        "train_rows": len(df),
-        "prediction_year": config.YEAR_MAX,
-        "feature_medians": Xall.median().to_dict(),
-    }
-    joblib.dump(bundle, config.MODELS_DIR / "gamesense.joblib", compress=3)
+    ModelBundle(
+        text_scorer=scorer,
+        xgb=ens[0],
+        lgb=ens[1],
+        w_xgb=w_xgb,
+        quantile_models=quantile_models,
+        feature_cols=FEATURE_COLS,
+        tier_names=config.TIER_NAMES,
+        train_rows=len(df),
+        prediction_year=config.YEAR_MAX,
+        feature_medians=Xall.median().to_dict(),
+    ).save()
 
     summary = {
         "rows_total": len(df),
@@ -195,7 +194,7 @@ def main():
         "confusion_matrix_test_2024": confusion_matrix(yte, final_pred).tolist(),
         "test_tier_distribution": pd.Series(yte).value_counts(normalize=True).sort_index().round(4).tolist(),
     }
-    (config.MODELS_DIR / "metrics.json").write_text(json.dumps(summary, indent=2) + "\n")
+    config.METRICS_PATH.write_text(json.dumps(summary, indent=2) + "\n")
     print(f"done in {(time.time() - t0) / 60:.1f} min")
 
 

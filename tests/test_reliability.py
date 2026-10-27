@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from gamesense.predictor import default_game
+from gamesense.game import Game
 from gamesense.reliability import calibration_check, confidence_level, input_warnings, tier_track_record
 
 
@@ -63,9 +63,9 @@ def market() -> pd.DataFrame:
     return pd.DataFrame({"genres": [["Indie", "Action"]] * 150 + [["Racing"]] * 5})
 
 
-def describe(**overrides) -> dict:
+def describe(**overrides) -> Game:
     base = {"about": " ".join(["word"] * 50), "genres": ["Indie", "Action"]}
-    return default_game(**{**base, **overrides})
+    return Game(**base | overrides)
 
 
 def test_typical_game_has_no_warnings(market):

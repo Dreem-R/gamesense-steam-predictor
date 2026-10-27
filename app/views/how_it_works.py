@@ -4,10 +4,12 @@ import streamlit as st
 
 from common import HIDDEN_GENRES, load_metrics, load_predictor
 from gamesense import config
-from gamesense.features import FRIENDLY_NAMES, slug
+from gamesense.features import FEATURE_COLS, FRIENDLY_NAMES, slug
 
 metrics = load_metrics()
 predictor = load_predictor()
+train_years, valid_year, test_year = config.TRAIN_YEARS, config.VALID_YEARS[0], config.TEST_YEARS[0]
+years = f"{config.YEAR_MIN}-{config.YEAR_MAX}"
 
 st.title("How it works")
 
@@ -15,7 +17,7 @@ st.markdown(f"""
 **The question:** from things a developer knows *before launch*, can we predict how a game will do on Steam?
 
 **The data:** the public *Steam Games Dataset* (FronkonGames, Hugging Face), about 124k apps. After cleaning,
-**{metrics["rows_total"]:,} games released 2018-2024** remain. Removed rows: empty store pages, software
+**{metrics["rows_total"]:,} games released {years}** remain. Removed rows: empty store pages, software
 (not games), untracked apps and prices above \\$100.
 
 **The target:** total Steam reviews, the standard public stand-in for sales, grouped into four tiers:
@@ -27,23 +29,24 @@ st.dataframe(
 )
 
 st.subheader("Pipeline")
-st.graphviz_chart("""
-digraph {
+st.graphviz_chart(f"""
+digraph {{
   rankdir=LR; node [shape=box, style="rounded,filled", fillcolor="#eef3f7", fontname="Helvetica", fontsize=11];
-  raw [label="124k Steam apps"]; clean [label="Clean + filter\\n69k games"];
-  feat [label="65 pre-launch features\\nprice, genres, platforms,\\nlanguages, store page,\\nstudio track record"];
+  raw [label="124k Steam apps"]; clean [label="Clean + filter\\n{metrics["rows_total"] / 1000:.0f}k games"];
+  feat [label="{len(FEATURE_COLS)} pre-launch features\\nprice, genres, platforms,\\n"
+              + "languages, store page,\\nstudio track record"];
   text [label="Store description\\nTF-IDF + Ridge\\n(NLP score, out-of-fold)"];
   xgb [label="XGBoost\\n(Optuna-tuned)"]; lgb [label="LightGBM\\n(Optuna-tuned)"];
   ens [label="Weighted ensemble\\n→ tier probabilities", fillcolor="#d8ecdf"];
   q [label="Quantile LightGBM\\n→ review range\\n+ explanations", fillcolor="#d8ecdf"];
   raw -> clean -> feat; clean -> text -> feat; feat -> xgb -> ens; feat -> lgb -> ens; feat -> q;
-}
+}}
 """)
 
-st.markdown("""
+st.markdown(f"""
 **Leakage controls:**
-- **Time-based split:** trained on 2018-2022, tuned on 2023, **tested once on 2024 releases**. That mirrors
-  predicting a game that hasn't launched yet.
+- **Time-based split:** trained on {train_years[0]}-{train_years[1]}, tuned on {valid_year}, **tested once on
+  {test_year} releases**. That mirrors predicting a game that hasn't launched yet.
 - **No post-launch signals:** user tags, DLC count, Metacritic, playtime, Steam Trading Cards (Valve grants
   them based on sales) and "Family Sharing" were all excluded.
 - **Description scrubbing:** phrases added after a game succeeds ("award-winning", "1M players",
@@ -51,7 +54,7 @@ st.markdown("""
 - **Studio history** only counts games released *before* each game.
 """)
 
-st.subheader("Results on 2024 releases (never seen during training)")
+st.subheader(f"Results on {test_year} releases (never seen during training)")
 test = pd.DataFrame(metrics["test_2024"]).T
 show = test[["accuracy", "macro_f1", "qwk", "within_1_tier", "auc_ovr", "auc_success_plus"]].rename(
     columns={
@@ -90,12 +93,12 @@ st.plotly_chart(fig, use_container_width=True)
 r = metrics["review_range_test_2024"]
 st.markdown(f"""
 **Review-count estimate** (quantile regression): the median estimate lands within 3x of the true review count
-for **{r["within_x3_of_actual"]:.0%}** of 2024 games. The 10th-90th percentile range contains the true value
+for **{r["within_x3_of_actual"]:.0%}** of {test_year} games. The 10th-90th percentile range contains the true value
 for **{r["interval_80_coverage"]:.0%}** of games (Spearman ρ = {r["spearman"]:.2f}).
 """)
 
 st.subheader("What drives the prediction overall")
-imp = pd.Series(predictor.b["lgb"].booster_.feature_importance("gain"), index=predictor.cols)
+imp = pd.Series(predictor.model.lgb.booster_.feature_importance("gain"), index=predictor.model.feature_cols)
 imp = imp / imp.sum()
 imp = imp[[c for c in imp.index if c not in {f"genre_{slug(g)}" for g in HIDDEN_GENRES}]]
 imp = imp.sort_values(ascending=False).head(15).iloc[::-1]

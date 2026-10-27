@@ -13,6 +13,7 @@ dependencies = [
     "lightgbm>=4.7,<5",
     "numpy>=2.2,<3",
     "pandas>=2.2,<3",
+    "pydantic>=2.9,<3",
     "pyarrow>=16",
     "scikit-learn>=1.7,<1.8",
     "scipy>=1.15,<2",
@@ -50,9 +51,10 @@ src = ["src", "app"]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "NPY", "PD002"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["gamesense", "common"]
+known-first-party = ["gamesense", "common", "components"]
 
 [tool.mypy]
+plugins = ["pydantic.mypy"]
 python_version = "3.12"
 files = ["src", "app", "tests"]
 mypy_path = "src,app"

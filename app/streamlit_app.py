@@ -9,6 +9,9 @@ import lightgbm  # noqa: F401, I001
 
 import streamlit as st
 
+from common import load_metrics
+from gamesense import config
+
 st.set_page_config(page_title="GameSense | Steam success predictor", layout="wide")
 
 pages = [
@@ -22,7 +25,7 @@ with st.sidebar:
     st.markdown("### GameSense")
     st.caption(
         "Estimates how a game will perform on Steam from its store page and the studio's track record. "
-        "Trained on 69,127 Steam releases from 2018 to 2024."
+        f"Trained on {load_metrics()['rows_total']:,} Steam releases from {config.YEAR_MIN} to {config.YEAR_MAX}."
     )
 
 nav.run()

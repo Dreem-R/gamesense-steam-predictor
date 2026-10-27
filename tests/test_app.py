@@ -3,6 +3,12 @@ from pathlib import Path
 import pytest
 from streamlit.testing.v1 import AppTest
 
+from components.suggestions import TEXT, title
+from gamesense.features import slug
+from gamesense.game import Game
+from gamesense.presets import PRESETS
+from gamesense.suggestions import candidate_changes
+
 APP = Path(__file__).resolve().parents[1] / "app" / "streamlit_app.py"
 
 
@@ -45,3 +51,27 @@ def test_prediction_requires_a_genre():
     at.multiselect(key="g_genres").set_value([]).run()
     assert not at.exception
     assert any("at least one genre" in i.value for i in at.info)
+
+
+def test_multiplayer_only_example_has_no_single_player():
+    at = run_app(example="free-to-play-online-shooter")
+    assert at.checkbox(key="g_mp_only").value
+
+
+@pytest.mark.parametrize("name", list(PRESETS))
+def test_form_rebuilds_each_example(predictor, name):
+    at = run_app(example=slug(name).replace("_", "-"))
+    pred = predictor.predict(PRESETS[name])
+    shown = {m.label: m.value for m in reversed(at.metric)}
+    assert shown["Chance of 100+ reviews"] == f"{pred.success_chance:.0%}"
+    assert shown["Expected reviews"] == f"{pred.reviews_mid:,.0f}"
+
+
+def test_every_suggestion_has_text():
+    ids = {c.id for price in (2.99, 39.99) for c in candidate_changes(Game(price=price))}
+    assert ids <= TEXT.keys()
+
+
+def test_price_suggestion_title_uses_both_prices():
+    change = next(c for c in candidate_changes(Game(price=2.99)) if c.id == "raise_price")
+    assert title(change, Game(price=2.99)) == "Price at $14.99 instead of $2.99"

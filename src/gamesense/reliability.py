@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 
 from gamesense import config
+from gamesense.game import Game
 
 
 def confidence_level(proba: np.ndarray) -> tuple[str, str]:
@@ -41,27 +42,26 @@ def calibration_check(test: pd.DataFrame, success_chance: float, width: float = 
     }
 
 
-def input_warnings(game: dict, market: pd.DataFrame) -> list[str]:
+def input_warnings(game: Game, market: pd.DataFrame) -> list[str]:
     """Flags inputs that are rare in the training data, where predictions are less reliable."""
     notes = []
-    if game["genres"]:
-        similar = market.genres.apply(lambda g: set(game["genres"]) <= set(g)).sum()
-        if similar < 100:
-            notes.append(
-                f"Only {similar} games in the data share this exact genre combination, "
-                "so the model has few comparable examples."
-            )
-    if game["about_words"] < 20:
+    similar = market.genres.apply(lambda g: set(game.genres) <= set(g)).sum()
+    if similar < 100:
+        notes.append(
+            f"Only {similar} games in the data share this exact genre combination, "
+            "so the model has few comparable examples."
+        )
+    if game.about_words < 20:
         notes.append("There is no real store description, so the text part of the model is not used.")
-    if game["price"] > 60:
+    if game.price > 60:
         notes.append("Very few games in the data are priced above $60.")
-    if game["n_languages"] > 20:
+    if game.n_languages > 20:
         notes.append("More than 20 languages is rare outside large publishers.")
-    if game["achievements"] > 300:
+    if game.achievements > 300:
         notes.append("More than 300 achievements is unusual and often linked to achievement-farming games.")
-    if game["dev_prior_games"] > 30:
+    if game.dev_prior_games > 30:
         notes.append("Studios with more than 30 previous releases are rare and behave differently.")
     multiplayer = {"Multi-player", "PvP", "Online PvP", "Co-op", "Online Co-op", "MMO"}
-    if "Single-player" not in game["categories"] and not set(game["categories"]) & multiplayer:
+    if "Single-player" not in game.categories and not set(game.categories) & multiplayer:
         notes.append("The game has neither single-player nor any multiplayer mode selected.")
     return notes

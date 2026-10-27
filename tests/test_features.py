@@ -13,11 +13,12 @@ from gamesense.features import (
     game_text,
     slug,
 )
-from gamesense.predictor import default_game, to_frame
+from gamesense.game import Game
 
 
 def features_for(**overrides) -> pd.Series:
-    return build_base_features(to_frame(default_game(**overrides))).iloc[0]
+    """Features for one row in the training schema, bypassing Game validation."""
+    return build_base_features(pd.DataFrame([Game().to_row() | overrides])).iloc[0]
 
 
 @pytest.mark.parametrize(
@@ -36,7 +37,7 @@ def test_feature_columns_are_unique_and_ordered():
 
 
 def test_base_features_have_every_column_except_text():
-    X = build_base_features(to_frame(default_game()))
+    X = build_base_features(pd.DataFrame([Game().to_row()]))
     assert list(X.columns) == BASE_COLS + GENRE_COLS + CATEGORY_COLS
     assert not X.isna().any().any()
 

@@ -1,8 +1,10 @@
-"""Fictional example games for the prediction page."""
+"""Fictional example games."""
 
-PRESETS = {
-    "Start from scratch": {},
-    "Cozy farming sim with online co-op": dict(
+from gamesense.game import Game
+
+PRESETS: dict[str, Game] = {
+    "Start from scratch": Game(),
+    "Cozy farming sim with online co-op": Game(
         name="Moonpetal Valley",
         short_description=(
             "Restore your grandmother's overgrown farm, befriend a village of spirits and grow magical crops "
@@ -29,20 +31,20 @@ PRESETS = {
             "Steam Cloud",
             "Full controller support",
         ],
-        windows=1,
-        mac=1,
-        linux=1,
+        windows=True,
+        mac=True,
+        linux=True,
         achievements=45,
         n_languages=10,
         n_audio_languages=0,
         n_screenshots=14,
-        has_website=1,
+        has_website=True,
         month=9,
         dev_prior_games=1,
         dev_prior_best_reviews=400,
-        self_published=1,
+        self_published=True,
     ),
-    "Solo developer's first platformer": dict(
+    "Solo developer's first platformer": Game(
         name="Pixel Jumper",
         short_description="A retro platformer about a small robot jumping through 30 levels.",
         about=(
@@ -53,19 +55,19 @@ PRESETS = {
         genres=["Indie", "Action", "Casual"],
         price=2.99,
         categories=["Single-player"],
-        windows=1,
-        mac=0,
-        linux=0,
+        windows=True,
+        mac=False,
+        linux=False,
         achievements=0,
         n_languages=1,
         n_screenshots=5,
-        has_website=0,
+        has_website=False,
         month=6,
         dev_prior_games=0,
         dev_prior_best_reviews=0,
-        self_published=1,
+        self_published=True,
     ),
-    "Free-to-play online shooter": dict(
+    "Free-to-play online shooter": Game(
         name="Overclock Arena",
         short_description=(
             "Fast team-based hero shooter. Pick one of 16 agents, master their abilities and fight in 5v5 "
@@ -89,23 +91,23 @@ PRESETS = {
             "Steam Achievements",
             "Full controller support",
         ],
-        windows=1,
-        mac=0,
-        linux=0,
+        windows=True,
+        mac=False,
+        linux=False,
         required_age=17,
         achievements=60,
         n_languages=14,
         n_audio_languages=6,
         n_screenshots=12,
-        has_website=1,
+        has_website=True,
         month=3,
         dev_prior_games=2,
         dev_prior_best_reviews=3000,
-        self_published=0,
+        self_published=False,
         pub_prior_games=60,
         pub_prior_best_reviews=40000,
     ),
-    "Story-driven visual novel": dict(
+    "Story-driven visual novel": Game(
         name="Letters to Autumn",
         short_description=(
             "A heartfelt visual novel about two pen pals whose letters start arriving from different years."
@@ -118,16 +120,16 @@ PRESETS = {
         genres=["Indie", "Adventure", "Casual"],
         price=9.99,
         categories=["Single-player", "Steam Achievements", "Steam Cloud"],
-        windows=1,
-        mac=1,
-        linux=0,
+        windows=True,
+        mac=True,
+        linux=False,
         achievements=20,
         n_languages=3,
         n_screenshots=8,
-        has_website=0,
+        has_website=False,
         month=2,
         dev_prior_games=0,
         dev_prior_best_reviews=0,
-        self_published=1,
+        self_published=True,
     ),
 }

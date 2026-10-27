@@ -100,13 +100,17 @@ The full metrics are in `models/metrics.json` and `reports/model_comparison_test
 ```
 ├── app/                            Streamlit app
 │   ├── streamlit_app.py            entry point
-│   ├── common.py                   cached loaders
+│   ├── common.py                   cached loaders and display constants
+│   ├── components/                 form, outcome, reliability, drivers, suggestions
 │   ├── data/insights.parquet       reduced dataset for the insights page
 │   └── views/                      predict, insights, how_it_works
 ├── src/gamesense/                  installable package
 │   ├── config.py                   paths, splits, tiers, feature vocabularies
+│   ├── game.py                     validated game input (Pydantic)
 │   ├── features.py                 feature engineering and text model
-│   ├── predictor.py                inference, explanations, suggestions
+│   ├── bundle.py                   model file, checked against the feature code on load
+│   ├── predictor.py                predictions and feature contributions
+│   ├── suggestions.py              candidate changes and how they scored
 │   ├── reliability.py              per-prediction reliability checks
 │   ├── metrics.py
 │   ├── presets.py                  example games

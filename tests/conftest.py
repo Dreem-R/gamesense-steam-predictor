@@ -2,7 +2,8 @@ import lightgbm  # noqa: F401, I001
 
 import pytest
 
-from gamesense.predictor import GameSensePredictor, default_game
+from gamesense.game import Game
+from gamesense.predictor import GameSensePredictor
 from gamesense.presets import PRESETS
 
 
@@ -12,5 +13,5 @@ def predictor() -> GameSensePredictor:
 
 
 @pytest.fixture(params=list(PRESETS), ids=list(PRESETS))
-def preset_game(request: pytest.FixtureRequest) -> dict:
-    return default_game(**PRESETS[request.param])
+def preset_game(request: pytest.FixtureRequest) -> Game:
+    return PRESETS[request.param]
