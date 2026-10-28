@@ -32,3 +32,32 @@ jobs:
 
       - name: Test
         run: pytest
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build image
+        run: docker build -t gamesense .
+
+      - name: Check the API container
+        run: |
+          docker run -d --name api -p 8000:8000 gamesense
+          curl -sf --retry 30 --retry-delay 2 --retry-all-errors localhost:8000/health
+          curl -sf localhost:8000/model
+          curl -sf -X POST localhost:8000/predict \
+            -H "Content-Type: application/json" \
+            -d '{"genres": ["Indie", "Adventure"], "price": 9.99, "n_screenshots": 8}'
+
+      - name: Check the web app container
+        run: |
+          docker run -d --name web -p 8501:8501 gamesense \
+            streamlit run app/streamlit_app.py --server.port=8501 --server.address=0.0.0.0
+          curl -sf --retry 30 --retry-delay 2 --retry-all-errors localhost:8501/_stcore/health
+
+      - name: Container logs
+        if: failure()
+        run: |
+          docker logs api || true
+          docker logs web || true

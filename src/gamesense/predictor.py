@@ -1,8 +1,5 @@
 """Inference: predictions, feature contributions and scored changes."""
 
-# lightgbm must be imported before pyarrow, otherwise prediction segfaults on Windows.
-import lightgbm  # noqa: F401, I001
-
 from dataclasses import dataclass
 
 import numpy as np

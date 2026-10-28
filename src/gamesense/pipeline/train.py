@@ -161,7 +161,7 @@ def main():
         test_out[f"p_{n.lower()}"] = p_te[:, i]
     test_out["pred_tier"] = final_pred
     test_out["pred_reviews_mid"] = np.expm1(q["mid"])
-    test_out.to_parquet(config.REPORTS_DIR / "test2024_predictions.parquet", index=False)
+    test_out.to_parquet(config.TEST_PREDICTIONS_PATH, index=False)
 
     # Stage 2
     print("stage 2: refit on 2018-2024")

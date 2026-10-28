@@ -21,10 +21,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+api = ["fastapi>=0.115,<1", "uvicorn>=0.30,<1"]
 app = ["plotly>=6,<7", "streamlit>=1.45,<2"]
 train = ["matplotlib>=3.9", "optuna>=5,<6", "seaborn>=0.13"]
 dev = [
-    "gamesense[app]",
+    "gamesense[api,app]",
+    "httpx2==2.16.0",
     "mypy==2.4.0",
     "pandas-stubs",
     "pre-commit==4.7.0",

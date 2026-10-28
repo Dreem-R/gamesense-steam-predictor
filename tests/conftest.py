@@ -1,5 +1,3 @@
-import lightgbm  # noqa: F401, I001
-
 import pytest
 
 from gamesense.game import Game

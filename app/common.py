@@ -1,12 +1,11 @@
 """Cached loaders and display constants."""
 
-import json
 from typing import Any
 
 import pandas as pd
 import streamlit as st
 
-from gamesense import config
+from gamesense import config, datasets
 from gamesense.predictor import GameSensePredictor
 
 # Used by the model but not offered as choices in the app.
@@ -35,18 +34,14 @@ def load_predictor() -> GameSensePredictor:
 
 @st.cache_data
 def load_insights() -> pd.DataFrame:
-    df = pd.read_parquet(config.APP_DATA_PATH)
-    df["genres"] = df["genres"].str.split("|")
-    df["categories"] = df["categories"].str.split("|")
-    df["success"] = df["tier"] >= 2
-    return df
+    return datasets.load_market()
 
 
 @st.cache_data
 def load_metrics() -> dict[str, Any]:
-    return json.loads(config.METRICS_PATH.read_text())
+    return datasets.load_metrics()
 
 
 @st.cache_data
 def load_test_predictions() -> pd.DataFrame:
-    return pd.read_parquet(config.REPORTS_DIR / "test2024_predictions.parquet")
+    return datasets.load_test_predictions()

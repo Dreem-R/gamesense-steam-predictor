@@ -11,6 +11,7 @@ FIGURES_DIR = REPORTS_DIR / "figures"
 APP_DATA_PATH = ROOT / "app" / "data" / "insights.parquet"
 MODEL_PATH = MODELS_DIR / "gamesense.joblib"
 METRICS_PATH = MODELS_DIR / "metrics.json"
+TEST_PREDICTIONS_PATH = REPORTS_DIR / "test2024_predictions.parquet"
 
 RANDOM_STATE = 42
 

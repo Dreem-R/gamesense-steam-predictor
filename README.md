@@ -95,6 +95,22 @@ The full metrics are in `models/metrics.json` and `reports/model_comparison_test
 - Store pages with 11 or more screenshots reach 100+ reviews in 29-33% of cases, compared with 13-14% for pages with fewer than 8.
 - A studio's second to fourth release does better than its first (24-27% vs 17%). Studios with 11 or more previous releases drop back to 16%.
 
+## Architecture
+
+The model and all prediction logic live in the `gamesense` package. Two thin interfaces sit on top of it and share the same input model, so validation and results are identical in both:
+
+- a **Streamlit app** for people, deployed on Streamlit Community Cloud
+- a **FastAPI service** for programs, with OpenAPI docs and a Docker image
+
+```
+              ┌──────────────────────┐     ┌─────────────────────────┐
+  browser ──▶ │ Streamlit app (app/) │     │ FastAPI (gamesense.api) │ ◀── HTTP clients
+              └──────────┬───────────┘     └───────────┬─────────────┘
+                         └────────────┬────────────────┘
+                                      ▼
+            gamesense: Game ─▶ features ─▶ ModelBundle ─▶ predictions, explanations, suggestions
+```
+
 ## Project structure
 
 ```
@@ -112,8 +128,10 @@ The full metrics are in `models/metrics.json` and `reports/model_comparison_test
 │   ├── predictor.py                predictions and feature contributions
 │   ├── suggestions.py              candidate changes and how they scored
 │   ├── reliability.py              per-prediction reliability checks
+│   ├── datasets.py                 market sample, held-out predictions, metrics
 │   ├── metrics.py
 │   ├── presets.py                  example games
+│   ├── api/                        FastAPI service and response schemas
 │   └── pipeline/                   training pipeline
 │       ├── prepare_data.py         cleaning and studio history
 │       ├── eda.py                  figures and app dataset
@@ -123,8 +141,10 @@ The full metrics are in `models/metrics.json` and `reports/model_comparison_test
 ├── tests/                          pytest suite
 ├── models/                         gamesense.joblib, best_params.json, metrics.json
 ├── reports/                        figures and comparison tables
+├── Dockerfile                      one image for the API and the app
+├── compose.yaml                    runs both
 ├── pyproject.toml                  package metadata and tool configuration
-├── requirements.txt                exact versions for the deployed app
+├── requirements.txt                exact versions for the deployed app and the image
 └── packages.txt                    system packages for Streamlit Community Cloud
 ```
 
@@ -137,6 +157,34 @@ python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 streamlit run app/streamlit_app.py
+uvicorn gamesense.api.main:app --reload
+```
+
+The app runs on http://localhost:8501 and the API on http://localhost:8000, which redirects to its interactive docs. The docs include the example games as ready-made requests.
+
+### With Docker
+
+```bash
+docker compose up --build
+```
+
+This builds one image and starts the API on port 8000 and the app on port 8501.
+
+## API
+
+| Method | Path | Returns |
+|---|---|---|
+| GET | `/health` | `{"status": "ok"}` once the model has loaded |
+| GET | `/model` | training size, tiers, feature count and held-out test scores |
+| POST | `/predict` | tier probabilities, chance of 100+ reviews, review range, reliability checks, input warnings |
+| POST | `/explain?top_k=8` | the features moving expected reviews the most |
+| POST | `/what-if` | each suggested change scored on its own, and the helpful ones combined |
+
+Every POST takes a game as JSON. Fields left out use defaults, and invalid input returns 422 with the field named:
+
+```bash
+curl -X POST localhost:8000/predict -H "Content-Type: application/json" \
+  -d '{"name": "Pixel Jumper", "genres": ["Indie", "Action"], "price": 2.99, "n_screenshots": 5}'
 ```
 
 ## Development
@@ -146,7 +194,7 @@ pip install -r requirements.txt -e ".[dev,train]"
 pre-commit install
 ```
 
-Checks, also run by CI on every push and pull request:
+Checks. CI runs these on every push and pull request, then builds the Docker image and sends requests to both containers:
 
 ```bash
 ruff check .

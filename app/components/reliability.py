@@ -8,9 +8,13 @@ import streamlit as st
 from common import TEST_YEAR, md
 from gamesense.game import Game
 from gamesense.predictor import Prediction
-from gamesense.reliability import calibration_check, confidence_level, input_warnings, tier_track_record
-
-MIN_CALIBRATION_GAMES = 30
+from gamesense.reliability import (
+    MIN_CALIBRATION_GAMES,
+    calibration_check,
+    confidence_level,
+    input_warnings,
+    tier_track_record,
+)
 
 
 def render(game: Game, pred: Prediction, test: pd.DataFrame, metrics: dict[str, Any], market: pd.DataFrame) -> None:

@@ -1,13 +1,20 @@
 """Reliability checks for a single prediction, based on held-out 2024 results."""
 
+from typing import Literal
+
 import numpy as np
 import pandas as pd
 
 from gamesense import config
 from gamesense.game import Game
 
+# Below this many similar held-out games, a calibration check says too little.
+MIN_CALIBRATION_GAMES = 30
 
-def confidence_level(proba: np.ndarray) -> tuple[str, str]:
+Confidence = Literal["High", "Moderate", "Low"]
+
+
+def confidence_level(proba: np.ndarray) -> tuple[Confidence, str]:
     order = np.argsort(proba)[::-1]
     top, second = proba[order[0]], proba[order[1]]
     names = config.TIER_NAMES
