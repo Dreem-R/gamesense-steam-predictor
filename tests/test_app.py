@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import get_args
 
 import pytest
 from streamlit.testing.v1 import AppTest
@@ -7,7 +8,7 @@ from components.suggestions import TEXT, title
 from gamesense.features import slug
 from gamesense.game import Game
 from gamesense.presets import PRESETS
-from gamesense.suggestions import candidate_changes
+from gamesense.suggestions import ChangeId, candidate_changes
 
 APP = Path(__file__).resolve().parents[1] / "app" / "streamlit_app.py"
 
@@ -26,6 +27,7 @@ def run_app(page: str | None = None, **query: str) -> AppTest:
         (None, "Will my game succeed on Steam?"),
         ("views/insights.py", "Steam market insights"),
         ("views/how_it_works.py", "How it works"),
+        ("views/api.py", "API reference"),
     ],
 )
 def test_page_renders_without_errors(page, title):
@@ -67,9 +69,15 @@ def test_form_rebuilds_each_example(predictor, name):
     assert shown["Expected reviews"] == f"{pred.reviews_mid:,.0f}"
 
 
+def test_api_reference_embeds_the_api_spec():
+    at = run_app("views/api.py")
+    html = at.get("iframe")[0].proto.srcdoc
+    assert '"title": "GameSense API"' in html
+    assert "http://localhost:8000/docs" in html
+
+
 def test_every_suggestion_has_text():
-    ids = {c.id for price in (2.99, 39.99) for c in candidate_changes(Game(price=price))}
-    assert ids <= TEXT.keys()
+    assert TEXT.keys() == set(get_args(ChangeId))
 
 
 def test_price_suggestion_title_uses_both_prices():

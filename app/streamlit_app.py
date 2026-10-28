@@ -18,6 +18,7 @@ pages = [
     st.Page("views/predict.py", title="Predict", default=True),
     st.Page("views/insights.py", title="Market insights"),
     st.Page("views/how_it_works.py", title="How it works"),
+    st.Page("views/api.py", title="API reference", url_path="api"),
 ]
 nav = st.navigation(pages)
 

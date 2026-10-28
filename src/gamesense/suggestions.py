@@ -5,6 +5,21 @@ from typing import Any, Literal
 
 from gamesense.game import Game
 
+ChangeId = Literal[
+    "more_screenshots",
+    "website",
+    "steam_cloud",
+    "achievements",
+    "controller",
+    "localisation",
+    "linux",
+    "macos",
+    "raise_price",
+    "lower_price",
+    "online_coop",
+    "publisher",
+]
+Area = Literal["Store page", "Steam features", "Reach", "Pricing", "Design", "Business"]
 Effort = Literal["Low", "Medium", "High"]
 
 # A change helps if it adds at least 1 point of success chance, or 15% more expected
@@ -16,8 +31,8 @@ MIN_REVIEW_RATIO = 1.15
 
 @dataclass(frozen=True)
 class Change:
-    id: str
-    area: str
+    id: ChangeId
+    area: Area
     effort: Effort
     updates: dict[str, Any] = field(default_factory=dict)
 
@@ -53,7 +68,7 @@ class ScoredChange:
 class CombinedPlan:
     """Every low and medium effort change that helped, applied together."""
 
-    change_ids: list[str]
+    change_ids: list[ChangeId]
     success_after: float
     reviews_after: float
     tier_after: str

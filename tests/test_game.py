@@ -5,6 +5,11 @@ from gamesense import config
 from gamesense.game import Game, to_frame
 
 
+def test_every_field_is_documented():
+    undocumented = [name for name, f in Game.model_fields.items() if not f.description]
+    assert undocumented == []
+
+
 def test_defaults_are_valid():
     game = Game()
     assert game.genres == ["Indie"]

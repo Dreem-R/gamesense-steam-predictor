@@ -23,10 +23,10 @@ def test_health(client):
     assert client.get("/health").json() == {"status": "ok"}
 
 
-def test_root_redirects_to_docs(client):
+def test_root_redirects_to_the_reference(client):
     response = client.get("/", follow_redirects=False)
     assert response.status_code == 307
-    assert response.headers["location"] == "/docs"
+    assert response.headers["location"] == "/redoc"
 
 
 def test_model_info(client, predictor):
@@ -109,6 +109,21 @@ def test_api_serves_predictions_from_a_fresh_process():
     )
     result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=180)
     assert result.returncode == 0, result.stderr[-2000:]
+
+
+def test_every_endpoint_is_documented(client):
+    spec = client.get("/openapi.json").json()
+    for path, methods in spec["paths"].items():
+        for method, op in methods.items():
+            assert op.get("tags"), (method, path)
+            assert op.get("summary"), (method, path)
+            assert len(op.get("description", "")) > 40, (method, path)
+
+
+def test_reference_lists_allowed_values(client):
+    schemas = client.get("/openapi.json").json()["components"]["schemas"]
+    assert schemas["Game"]["properties"]["genres"]["items"]["enum"] == config.GENRES
+    assert "steam_cloud" in schemas["ScoredChange"]["properties"]["id"]["enum"]
 
 
 def test_docs_offer_the_example_games(client):

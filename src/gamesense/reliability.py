@@ -12,15 +12,17 @@ from gamesense.game import Game
 MIN_CALIBRATION_GAMES = 30
 
 Confidence = Literal["High", "Moderate", "Low"]
+HIGH_CONFIDENCE = 0.6  # probability on the top tier
+CLEAR_LEAD = 0.2  # gap between the top two tiers for Moderate
 
 
 def confidence_level(proba: np.ndarray) -> tuple[Confidence, str]:
     order = np.argsort(proba)[::-1]
     top, second = proba[order[0]], proba[order[1]]
     names = config.TIER_NAMES
-    if top >= 0.6:
+    if top >= HIGH_CONFIDENCE:
         return "High", f"{top:.0%} probability on {names[order[0]]}."
-    if top - second >= 0.2:
+    if top - second >= CLEAR_LEAD:
         return "Moderate", f"{top:.0%} on {names[order[0]]}, next is {names[order[1]]} at {second:.0%}."
     return "Low", f"Split between {names[order[0]]} ({top:.0%}) and {names[order[1]]} ({second:.0%})."
 

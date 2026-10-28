@@ -14,7 +14,7 @@ from fastapi import Body, Depends, FastAPI, Query, Request
 from fastapi.responses import RedirectResponse
 
 from gamesense import config, datasets
-from gamesense.api import schemas
+from gamesense.api import docs, schemas
 from gamesense.features import FEATURE_COLS, slug
 from gamesense.game import Game
 from gamesense.predictor import GameSensePredictor
@@ -53,7 +53,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="GameSense API",
     version=version("gamesense"),
-    description="Predicts how a game will perform on Steam from information available before launch.",
+    description=docs.DESCRIPTION,
+    openapi_tags=docs.TAGS,
     lifespan=lifespan,
 )
 
@@ -77,15 +78,15 @@ GameBody = Annotated[
 
 @app.get("/", include_in_schema=False)
 def docs_redirect() -> RedirectResponse:
-    return RedirectResponse("/docs")
+    return RedirectResponse("/redoc")
 
 
-@app.get("/health")
+@app.get("/health", tags=["Service"], summary="Check the service is up", description=docs.HEALTH)
 def health() -> schemas.Health:
     return schemas.Health()
 
 
-@app.get("/model")
+@app.get("/model", tags=["Service"], summary="Describe the model", description=docs.MODEL)
 def model_info(r: Resource) -> schemas.ModelInfo:
     m = r.predictor.model
     final = r.metrics["test_2024"]["GameSense ensemble"]
@@ -100,7 +101,7 @@ def model_info(r: Resource) -> schemas.ModelInfo:
     )
 
 
-@app.post("/predict")
+@app.post("/predict", tags=["Predictions"], summary="Predict how a game will do", description=docs.PREDICT)
 def predict(game: GameBody, r: Resource) -> schemas.Prediction:
     pred = r.predictor.predict(game)
     level, detail = confidence_level(pred.proba)
@@ -121,12 +122,16 @@ def predict(game: GameBody, r: Resource) -> schemas.Prediction:
     )
 
 
-@app.post("/explain")
-def explain(game: GameBody, r: Resource, top_k: Annotated[int, Query(ge=1, le=30)] = 8) -> list[schemas.Contribution]:
+@app.post("/explain", tags=["Predictions"], summary="Explain a prediction", description=docs.EXPLAIN)
+def explain(
+    game: GameBody,
+    r: Resource,
+    top_k: Annotated[int, Query(ge=1, le=30, description="Number of features to return.")] = 8,
+) -> list[schemas.Contribution]:
     return [schemas.Contribution.of(c) for c in r.predictor.explain(game, top_k=top_k)]
 
 
-@app.post("/what-if")
+@app.post("/what-if", tags=["Predictions"], summary="Score suggested changes", description=docs.WHAT_IF)
 def what_if(game: GameBody, r: Resource) -> schemas.WhatIf:
     scored, plan = r.predictor.what_if(game)
     combined = None

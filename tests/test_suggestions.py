@@ -54,7 +54,7 @@ def test_applying_the_publisher_change_switches_history():
 
 
 def scored(success_after: float, reviews_after: float) -> ScoredChange:
-    return ScoredChange(Change("x", "Reach", "Low"), 0.20, success_after, 100.0, reviews_after)
+    return ScoredChange(Change("website", "Store page", "Low"), 0.20, success_after, 100.0, reviews_after)
 
 
 @pytest.mark.parametrize(

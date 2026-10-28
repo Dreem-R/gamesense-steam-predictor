@@ -119,7 +119,7 @@ The model and all prediction logic live in the `gamesense` package. Two thin int
 │   ├── common.py                   cached loaders and display constants
 │   ├── components/                 form, outcome, reliability, drivers, suggestions
 │   ├── data/insights.parquet       reduced dataset for the insights page
-│   └── views/                      predict, insights, how_it_works
+│   └── views/                      predict, insights, how_it_works, api
 ├── src/gamesense/                  installable package
 │   ├── config.py                   paths, splits, tiers, feature vocabularies
 │   ├── game.py                     validated game input (Pydantic)
@@ -160,7 +160,7 @@ streamlit run app/streamlit_app.py
 uvicorn gamesense.api.main:app --reload
 ```
 
-The app runs on http://localhost:8501 and the API on http://localhost:8000, which redirects to its interactive docs. The docs include the example games as ready-made requests.
+The app runs on http://localhost:8501 and the API on http://localhost:8000, which opens the API reference. The interactive console at http://localhost:8000/docs sends real requests and includes the example games as ready-made bodies.
 
 ### With Docker
 
@@ -171,6 +171,8 @@ docker compose up --build
 This builds one image and starts the API on port 8000 and the app on port 8501.
 
 ## API
+
+The full reference is also on the [API reference page of the live demo](https://gamesense-steam-predictor.streamlit.app/api), generated from the API's code.
 
 | Method | Path | Returns |
 |---|---|---|
