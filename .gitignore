@@ -5,6 +5,7 @@ __pycache__/
 .claude/
 data/raw/
 data/processed/
+data/reviews/
 linkedin/
 *.egg-info/
 .mypy_cache/

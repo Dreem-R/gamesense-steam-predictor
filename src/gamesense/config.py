@@ -6,6 +6,7 @@ ROOT = Path(__file__).resolve().parents[2]
 RAW_PATH = ROOT / "data" / "raw" / "steam_games.parquet"
 PROCESSED_PATH = ROOT / "data" / "processed" / "games_clean.parquet"
 FORWARD_PATH = ROOT / "data" / "processed" / "games_forward.parquet"
+REVIEW_HISTORY_PATH = ROOT / "data" / "reviews" / "histograms.jsonl"
 MODELS_DIR = ROOT / "models"
 REPORTS_DIR = ROOT / "reports"
 FIGURES_DIR = REPORTS_DIR / "figures"

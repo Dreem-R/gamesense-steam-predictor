@@ -39,7 +39,9 @@ Cleaning steps (`src/gamesense/pipeline/prepare_data.py`):
 
 Result: **69,127 games**.
 
-The review counts behind the tiers come from SteamSpy. In this copy of the dataset they stop updating around the end of May 2025, so late-2024 releases had about half a year to collect reviews, and later releases have no usable counts. Steam's own count is current, but Steam only publishes it once a game passes 100 reviews. The forward test below uses it.
+The review counts behind the tiers come from SteamSpy. In this copy of the dataset they stop updating around the end of May 2025, so late-2024 releases had about half a year to collect reviews, and later releases have no usable counts. SteamSpy also stopped tracking many free games from 2021, and those are left out of training: 8% of the cleaned 2018-2024 games.
+
+Steam's own count is current, but Steam publishes it only for paid games, and only once a game passes 100 reviews. The forward test below uses it.
 
 ## Method
 
@@ -88,18 +90,18 @@ The full metrics are in `models/metrics.json` and `reports/model_comparison_test
 
 ### Forward test on 2025 releases
 
-The shipped model is trained on 2018-2024 releases. `gamesense.pipeline.forward_test` scores the 2025 releases, which it has never seen, the way the app would. The outcome is whether a game reached 100+ reviews by Steam's own count.
+The shipped model is trained on 2018-2024 releases. `gamesense.pipeline.forward_test` scores the 2025 releases, which it has never seen, the way the app would. The outcome is whether a game reached 100+ reviews by Steam's own count, which covers paid games only.
 
-| Games | Count | AUC: 100+ reviews | Predicted rate | Actual rate |
+| Paid games | Count | AUC: 100+ reviews | Predicted rate | Actual rate |
 |---|---|---|---|---|
-| 2024 test set, same outcome (model trained through 2023) | 15,361 | 0.872 | 17.1% | 14.9% |
-| 2025, tracked by SteamSpy, released January to May | 7,045 | 0.886 | 17.2% | 14.3% |
-| 2025, every game with a store page, 12+ months on sale | 13,954 | 0.870 | 16.0% | 12.2% |
+| 2024 test set, same outcome (model trained through 2023) | 14,233 | 0.876 | 17.3% | 15.9% |
+| 2025, tracked by SteamSpy, released January to May | 6,766 | 0.887 | 17.4% | 14.8% |
+| 2025, all paid games with 12+ months on sale | 11,887 | 0.875 | 16.7% | 14.3% |
 
 - **Ranking holds up.** The model separates games that reach 100+ reviews from those that do not as well on 2025 as on 2024.
-- **Predicted chances run high,** by about 1.2x on the kind of games the model was trained on and 1.3x on all games. The middle of the range is worst: 2025 games given a 30-50% chance reached 100+ reviews 24% of the time.
-- **Two likely causes.** Each year has more releases and a lower success rate than the model's latest training year. Training also leaves out games SteamSpy does not track: 8% of cleaned 2018-2024 games, of which 2.6% reach 100+ reviews against 17% of tracked games.
-- **The four tiers cannot be checked on 2025,** because SteamSpy's counts stop partway through the year.
+- **Predicted chances run high,** by about 1.2x on 2025 games. The middle of the range is worst: games given a 30-50% chance reached 100+ reviews 28% of the time.
+- **Likely cause.** Each year has more releases and a lower success rate than the model's latest training year, and the model cannot see that coming.
+- **Free games and the four tiers cannot be checked on 2025.** Steam does not publish its count for free games, and SteamSpy's counts stop partway through the year.
 
 The full report, with calibration tables, is in `reports/forward_test.json`.
 
@@ -258,6 +260,6 @@ On a laptop CPU, tuning takes about an hour and training about 11 minutes.
 - **Only store-page data is used.** Wishlists, trailers, marketing, press and streamer coverage are not in the data, and they are often the deciding factors.
 - **Store pages change after launch.** Languages, screenshots and achievements may have been added later, so these signals are somewhat optimistic.
 - **Studio history is measured at the snapshot date,** not at the time of each launch.
-- **Predicted chances are too high for a typical new game,** by roughly 1.2x to 1.3x on 2025 releases. See the forward test.
+- **Predicted chances are too high for a typical new game,** by roughly 1.2x on paid 2025 releases. See the forward test.
 - **Review counts stop in mid-2025.** Older games had years to collect reviews and late-2024 games about six months, so the tiers do not mean the same thing across release years.
 - **Associations are not causal.** The suggestions show how the model responds to a change, not a guaranteed outcome.

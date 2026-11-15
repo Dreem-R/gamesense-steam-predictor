@@ -1,7 +1,8 @@
 """Check the shipped model on the first release year it has not seen.
 
-The outcome is whether a game reached 100+ reviews, counted by Steam itself. The tiers cannot be checked
-this way: they come from SteamSpy's review counts, which stop updating partway through the forward year.
+The outcome is whether a game reached 100+ reviews, counted by Steam itself. Steam publishes that count
+for paid games only, so free games are left out. The tiers cannot be checked this way: they come from
+SteamSpy's review counts, which stop updating partway through the forward year.
 
 Writes reports/forward_test.json.
 
@@ -41,16 +42,18 @@ def evaluate(games: pd.DataFrame, p_success: np.ndarray, p_hit: np.ndarray) -> d
 
 
 def reference_year() -> dict[str, Any]:
-    """The held-out test year, scored against the same Steam outcome for comparison."""
+    """The held-out test year's paid games, scored against the same Steam outcome for comparison."""
     predictions = pd.read_parquet(config.TEST_PREDICTIONS_PATH)
-    steam = pd.read_parquet(config.PROCESSED_PATH, columns=["app_id", "steam_recommendations"])
+    steam = pd.read_parquet(config.PROCESSED_PATH, columns=["app_id", "price", "steam_recommendations"])
     games = predictions.merge(steam, on="app_id", validate="one_to_one")
+    games = games[games["price"] > 0]
     return evaluate(games, games["p_success"].to_numpy(), games["p_hit"].to_numpy())
 
 
 def main() -> None:
     predictor = GameSensePredictor()
-    games = pd.read_parquet(config.FORWARD_PATH)
+    every_game = pd.read_parquet(config.FORWARD_PATH)
+    games = every_game[every_game["price"] > 0].reset_index(drop=True)
     proba = predictor.predict_frame(games)
     p_success, p_hit = proba["p_success"].to_numpy(), proba["p_hit"].to_numpy()
 
@@ -60,16 +63,17 @@ def main() -> None:
     slices = {
         # The same kind of games the model was trained and tested on.
         "tracked_before_freeze": (games["tracked"] & before_freeze).to_numpy(),
-        # What a developer faces: every game with a store page, once it has had time to collect reviews.
-        "all_games_mature": (games["months_on_sale"] >= config.MIN_MONTHS_ON_SALE).to_numpy(),
-        "all_games": np.ones(len(games), dtype=bool),
+        # Every paid game with a store page, once it has had time to collect reviews.
+        "paid_games_mature": (games["months_on_sale"] >= config.MIN_MONTHS_ON_SALE).to_numpy(),
+        "paid_games": np.ones(len(games), dtype=bool),
     }
     results = {name: evaluate(games[mask], p_success[mask], p_hit[mask]) for name, mask in slices.items()}
     reference = reference_year()
     report = {
         "forward_year": config.FORWARD_YEAR,
         "model_trained_through": predictor.model.prediction_year,
-        "outcome": f"{SUCCESS}+ Steam recommendations at the data snapshot",
+        "outcome": f"{SUCCESS}+ Steam recommendations at the data snapshot, paid games only",
+        "free_games_left_out": int(len(every_game) - len(games)),
         "review_counts_frozen_from": str(frozen_from) if frozen_from is not None else None,
         "min_months_on_sale": config.MIN_MONTHS_ON_SALE,
         "reference": {"year": config.TEST_YEARS[0], **reference},
