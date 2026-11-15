@@ -5,6 +5,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 RAW_PATH = ROOT / "data" / "raw" / "steam_games.parquet"
 PROCESSED_PATH = ROOT / "data" / "processed" / "games_clean.parquet"
+FORWARD_PATH = ROOT / "data" / "processed" / "games_forward.parquet"
 MODELS_DIR = ROOT / "models"
 REPORTS_DIR = ROOT / "reports"
 FIGURES_DIR = REPORTS_DIR / "figures"
@@ -12,14 +13,21 @@ APP_DATA_PATH = ROOT / "app" / "data" / "insights.parquet"
 MODEL_PATH = MODELS_DIR / "gamesense.joblib"
 METRICS_PATH = MODELS_DIR / "metrics.json"
 TEST_PREDICTIONS_PATH = REPORTS_DIR / "test2024_predictions.parquet"
+FORWARD_REPORT_PATH = REPORTS_DIR / "forward_test.json"
 
 RANDOM_STATE = 42
 
-# Every game in this window had at least a year on sale before the snapshot.
+# The tiers come from SteamSpy's review counts, which stop updating in mid-2025 in this dataset
+# (see the forward test). Later release years have no usable tiers.
 YEAR_MIN, YEAR_MAX = 2018, 2024
 TRAIN_YEARS = (2018, 2022)
 VALID_YEARS = (2023, 2023)
 TEST_YEARS = (2024, 2024)
+
+# The first release year after the window. The shipped model never sees it, so it is used to check
+# that model on later launches. Games with less time on sale than this have not collected their reviews yet.
+FORWARD_YEAR = YEAR_MAX + 1
+MIN_MONTHS_ON_SALE = 12
 
 # Tiers by total reviews. Boxleiter estimate: roughly 30-60 copies sold per review.
 TIER_BINS = [-1, 9, 99, 999, float("inf")]

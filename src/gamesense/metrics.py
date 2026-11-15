@@ -35,3 +35,35 @@ def tier_metrics(y_true, proba=None, y_pred=None, reviews_true=None, score=None)
     if score is not None and reviews_true is not None:
         out["spearman_reviews"] = spearmanr(score, reviews_true).correlation
     return out
+
+
+CALIBRATION_EDGES = [0.0, 0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 1.0]
+
+
+def outcome_metrics(happened, chance) -> dict:
+    """How well predicted chances of a yes/no outcome match what happened.
+
+    AUC measures ranking: whether games that made it were given higher chances than games that did not.
+    The calibration table compares the average predicted chance with the actual rate in bands of chance.
+    """
+    happened = np.asarray(happened, dtype=bool)
+    chance = np.asarray(chance, dtype=float)
+    band = np.digitize(chance, CALIBRATION_EDGES[1:-1])
+    calibration = [
+        {
+            "from": CALIBRATION_EDGES[b],
+            "to": CALIBRATION_EDGES[b + 1],
+            "games": int((band == b).sum()),
+            "predicted": float(chance[band == b].mean()),
+            "actual": float(happened[band == b].mean()),
+        }
+        for b in range(len(CALIBRATION_EDGES) - 1)
+        if (band == b).any()
+    ]
+    return {
+        "games": int(len(happened)),
+        "actual_rate": float(happened.mean()),
+        "predicted_rate": float(chance.mean()),
+        "auc": float(roc_auc_score(happened, chance)),
+        "calibration": calibration,
+    }

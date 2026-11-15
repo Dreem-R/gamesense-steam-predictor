@@ -126,8 +126,18 @@ class GameSensePredictor:
         )
         return scored, plan
 
+    def predict_frame(self, rows: pd.DataFrame) -> pd.DataFrame:
+        """Tier probabilities for many games at once, given rows in the cleaned data's schema.
+
+        Rows are scored the way the app scores a game: as a release in the model's prediction year.
+        """
+        _, proba, _, _ = self._score_rows(rows.assign(year=self.model.prediction_year))
+        return pd.DataFrame(proba, columns=[f"p_{t.lower()}" for t in self.model.tier_names], index=rows.index)
+
     def _score(self, games: list[Game]) -> tuple[pd.DataFrame, np.ndarray, dict[str, np.ndarray], np.ndarray]:
-        frame = to_frame(games)
+        return self._score_rows(to_frame(games))
+
+    def _score_rows(self, frame: pd.DataFrame) -> tuple[pd.DataFrame, np.ndarray, dict[str, np.ndarray], np.ndarray]:
         X, used_text = self._features(frame)
         m = self.model
         proba = m.w_xgb * np.asarray(m.xgb.predict_proba(X)) + (1 - m.w_xgb) * np.asarray(m.lgb.predict_proba(X))

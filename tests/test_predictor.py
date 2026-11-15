@@ -3,10 +3,11 @@ import os
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from gamesense import config
-from gamesense.game import Game
+from gamesense.game import Game, to_frame
 from gamesense.presets import PRESETS
 
 SNAPSHOT = Path(__file__).parent / "data" / "preset_predictions.json"
@@ -100,3 +101,16 @@ def test_what_if_with_nothing_to_change(predictor):
         categories=["Single-player", "Steam Cloud", "Full controller support", "Co-op"],
     )
     assert predictor.what_if(complete) == ([], None)
+
+
+def test_predict_frame_matches_single_predictions(predictor):
+    games = list(PRESETS.values())
+    proba = predictor.predict_frame(to_frame(games))
+    assert list(proba.columns) == ["p_flop", "p_niche", "p_success", "p_hit"]
+    for i, game in enumerate(games):
+        np.testing.assert_allclose(proba.iloc[i], predictor.predict(game).proba)
+
+
+def test_predict_frame_scores_every_row_as_the_prediction_year(predictor):
+    frame = to_frame(list(PRESETS.values()))
+    pd.testing.assert_frame_equal(predictor.predict_frame(frame), predictor.predict_frame(frame.assign(year=2019)))
